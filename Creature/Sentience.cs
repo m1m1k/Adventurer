@@ -1,17 +1,20 @@
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Text;
-using KalaGame;
+using TimeLords;
+using TimeLords.Creature;
 
-namespace Adventurer
+namespace TimeLords
 {
+    [Serializable]
     public class Sentience
     {
         int intelligence, aggression, hostility;
         bool inventoryCheck = true; //Whether we need to look at the inventory
         Random rng = new Random();
         Stack<byte> path = new Stack<byte>();
-        Point2D targetPos = new Point2D(-1,-1);
+        Point targetPos = new Point(-1,-1);
 
         public Sentience():this(50,50,50){} //Default Constructor
         public Sentience(int intelligence, int aggression, int hostility)
@@ -30,46 +33,46 @@ namespace Adventurer
             this.hostility = s.hostility;
         } //Copy method
 
-        public string DecideAction(Level currentLevel, Creature thisCreature)
+        public CreatureAction DecideAction(Level currentLevel, Creature thisCreature)
         {
-            int dir = rng.Next(1, 8);
-            if (dir >= 5)
-                dir++;
+            int direction = rng.Next(1, 8);
+            if (direction >= 5)
+                direction++;
 
             if (thisCreature is QuestGiver)            
-                return "Wait";            
+                return new CreatureAction(CreatureActionType.Wait);          
 
             #region Array of positions
-            Point2D[] newPos = new Point2D[10];
-            newPos[1] = new Point2D(thisCreature.pos.X - 1, thisCreature.pos.Y + 1); //1
-            newPos[2] = new Point2D(thisCreature.pos.X    , thisCreature.pos.Y + 1); //2     
-            newPos[3] = new Point2D(thisCreature.pos.X + 1, thisCreature.pos.Y + 1); //3
-            newPos[4] = new Point2D(thisCreature.pos.X - 1, thisCreature.pos.Y);     //4 
-            newPos[6] = new Point2D(thisCreature.pos.X + 1, thisCreature.pos.Y);     //6
-            newPos[7] = new Point2D(thisCreature.pos.X - 1, thisCreature.pos.Y - 1); //7 
-            newPos[8] = new Point2D(thisCreature.pos.X    , thisCreature.pos.Y - 1); //8     
-            newPos[9] = new Point2D(thisCreature.pos.X + 1, thisCreature.pos.Y - 1); //9 
+            Point[] newPos = new Point[10];
+            newPos[1] = new Point(thisCreature.pos.X - 1, thisCreature.pos.Y + 1); //1
+            newPos[2] = new Point(thisCreature.pos.X    , thisCreature.pos.Y + 1); //2     
+            newPos[3] = new Point(thisCreature.pos.X + 1, thisCreature.pos.Y + 1); //3
+            newPos[4] = new Point(thisCreature.pos.X - 1, thisCreature.pos.Y);     //4 
+            newPos[6] = new Point(thisCreature.pos.X + 1, thisCreature.pos.Y);     //6
+            newPos[7] = new Point(thisCreature.pos.X - 1, thisCreature.pos.Y - 1); //7 
+            newPos[8] = new Point(thisCreature.pos.X    , thisCreature.pos.Y - 1); //8     
+            newPos[9] = new Point(thisCreature.pos.X + 1, thisCreature.pos.Y - 1); //9 
             #endregion
 
             #region Gather States
-            while (newPos[dir].X <= 0 || newPos[dir].X >= 80 || newPos[dir].Y <= 0 || newPos[dir].Y >= 40) //While out of bounds
+            while (newPos[direction].X <= 0 || newPos[direction].X >= 80 || newPos[direction].Y <= 0 || newPos[direction].Y >= 40) //While out of bounds
             {
-                dir = rng.Next(1, 8);
-                if (dir >= 5) dir++;
+                direction = rng.Next(1, 8);
+                if (direction >= 5) direction++;
             }
 
             int canAttackMeleeDir = 0;
-            Point2D playerPos = currentLevel.creatures[0].pos;
+            Point playerPos = currentLevel.creatureList[0].pos;
 
             for (int y = 0; y < Level.GRIDH; y++)
                 for (int x = 0; x < Level.GRIDW; x++)
                 {
                     if (currentLevel.tileArray[x, y].itemList.Count > 0 &&
-                        currentLevel.LineOfSight(thisCreature.pos, new Point2D(x, y)) &&
+                        currentLevel.LineOfSight(thisCreature.pos, new Point(x, y)) &&
                         path.Count == 0)
                     {
-                        thisCreature.targetPos = new Point2D(x, y); //Item is next target if seen
-                        path = currentLevel.AStarPathfind(thisCreature, thisCreature.pos, new Point2D(x,y));
+                        thisCreature.targetPos = new Point(x, y); //Item is next target if seen
+                        path = currentLevel.AStarPathfind(thisCreature, thisCreature.pos, new Point(x,y));
                     }
                 }
             #endregion
@@ -80,10 +83,11 @@ namespace Adventurer
             {
                 foreach (BodyPart b in thisCreature.anatomy)
                 {
-                    if (b.flags.HasFlag(BodyPartFlags.CanPickUpItem)) //If any part can pick up items
+                    if (b.canPickUpItem) //If any part can pick up items
                     {
                         inventoryCheck = true; //We're picking up an item, so we need to see what we can do with it
-                        return "Pick Up"; //Pick it up
+                        //Pick it up
+                        return new CreatureAction(CreatureActionType.Pick_Up);
                     }
                 }
             }
@@ -95,32 +99,38 @@ namespace Adventurer
 
                 if (currentLevel.ConvertAbsolutePosToRelative(thisCreature.pos, targetPos) > 0) //If adjacent
                 {
-                    return "Attack " + currentLevel.ConvertAbsolutePosToRelative(thisCreature.pos, targetPos);
+                    return new CreatureAction(CreatureActionType.Attack, currentLevel.ConvertAbsolutePosToRelative(thisCreature.pos, targetPos));
                 }
 
                 path = currentLevel.AStarPathfind(thisCreature, thisCreature.pos, playerPos); //Path to player
-                return "Move " + path.Pop();
+                return new CreatureAction(CreatureActionType.Move, path.Pop());
             }
 
             if (path.Count > 0) //If there's a target
             {
                 if (targetPos == thisCreature.pos) //If we're standing on it
                 {
-                    targetPos = new Point2D(-1,-1); //Forget this target
+                    targetPos = new Point(-1,-1); //Forget this target
                     path.Clear();
                 }
                 else
                 {
                     if (canAttackMeleeDir == path.Peek()) //If there's a creature in our way
-                        return "Attack " + canAttackMeleeDir; //Attack it
-
+                    {
+                        //Attack it
+                        return new CreatureAction(CreatureActionType.Attack, canAttackMeleeDir);
+                    }
                     if (path.Peek() > 0)
-                        return "Move " + path.Pop(); //Go towards target
+                    {
+                        //Go towards target
+                        return new CreatureAction(CreatureActionType.Move, path.Pop());
+                    }
                     else
                     {
-                        targetPos = new Point2D(-1,-1);
+                        targetPos = new Point(-1, -1);
                         path.Clear();
-                        return "Move " + dir; //Wander
+                        //Wander
+                        return new CreatureAction(CreatureActionType.Move, direction);
                     }
                 }
             }
@@ -129,9 +139,9 @@ namespace Adventurer
             {
                 foreach (Item i in thisCreature.inventory)
                 {
-                    if (i is Potion && (b.injury.HasFlag(InjuryLevel.Mangled) || b.injury.HasFlag(InjuryLevel.Broken))) //If the creature has a potion and is hurt badly
+                    if (i is Potion && b.currentHealth < b.noInjury / 2) //If the creature has a potion and is hurt badly
                     {
-                        return "Eat " + thisCreature.inventory.IndexOf(i);
+                        return new CreatureAction(CreatureActionType.Eat, thisCreature.inventory.IndexOf(i));
                     }
                 }
             }
@@ -141,13 +151,13 @@ namespace Adventurer
                 {
                     if (currentLevel.tileArray[x, y].itemList.Count > 0)
                     {
-                        if (currentLevel.LineOfSight(thisCreature.pos, new Point2D(x, y)))
+                        if (currentLevel.LineOfSight(thisCreature.pos, new Point(x, y)))
                         {
                             foreach (BodyPart b in thisCreature.anatomy)
                             {
-                                if (b.flags.HasFlag(BodyPartFlags.CanPickUpItem))
+                                if (b.canPickUpItem)
                                 {
-                                    targetPos = new Point2D(x, y);
+                                    targetPos = new Point(x, y);
                                     path = currentLevel.AStarPathfind(thisCreature, thisCreature.pos, playerPos); //Path to item
                                     break;
                                 }
@@ -165,13 +175,13 @@ namespace Adventurer
                     {
                         if (thisCreature.weapon == null)
                         {
-                            return "Wield " + thisCreature.inventory.IndexOf(i);
+                            return new CreatureAction(CreatureActionType.Wield, thisCreature.inventory.IndexOf(i));
                         }
                         else
                         {
                             if (i.damage.average > thisCreature.weapon.damage.average)
                             {
-                                return "Unwield";
+                                return new CreatureAction(CreatureActionType.Unwield);
                             }
                         }
                     }
@@ -180,7 +190,7 @@ namespace Adventurer
                     {
                         if (thisCreature.CanWear((Armor)i))
                         {
-                            return "Wear " + thisCreature.inventory.IndexOf(i);
+                            return new CreatureAction(CreatureActionType.Wear, thisCreature.inventory.IndexOf(i));
                         }
                     }
                 }
@@ -188,13 +198,14 @@ namespace Adventurer
                 inventoryCheck = false; //If we've checked everything and can't find a use, don't bother for a while
             }
 
-            while (!thisCreature.CanMoveBorder(dir))
+            var newPoint = Keyboard.DirectionNumToPoint(direction, thisCreature.pos);
+            while (!thisCreature.CanMoveBorder(newPoint))
             {
-                dir = rng.Next(1, 9);
-                if (dir >= 5)
-                    dir++;
+                direction = rng.Next(1, 9);
+                if (direction >= 5)
+                    direction++;
             }
-            return "Move " + dir; //Default action            
+            return new CreatureAction(CreatureActionType.Move, new List<int> { newPoint.X, newPoint.Y });
         }
         public bool ShouldBeHostileTo(int creatureNumber)
         {

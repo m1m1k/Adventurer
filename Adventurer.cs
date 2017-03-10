@@ -3,8 +3,8 @@ using System.IO; //Mainly used for reading and writing files
 using System.Collections.Generic;
 using System.Runtime.InteropServices; //For use in wrangling pointers in their place (ew SDL)
 //using System.Drawing; //Some system color drawing and stuff
-using Tao.Sdl; //Graphics Library
-using KalaGame;
+//using Tao.Sdl; //Graphics Library
+//using KalaGame;
 
 namespace Adventurer
 {
@@ -275,8 +275,8 @@ namespace Adventurer
             int inputIndex = 0; //The creature we've selected.
 
             #region Draw New Page
-            Sdl.SDL_FillRect(screen, ref screenArea, 0); //Clear for next draw cycle
-            screenData = (Sdl.SDL_Surface)Marshal.PtrToStructure(screen, typeof(Sdl.SDL_Surface)); //Put the screen data in its place
+            //Sdl.SDL_FillRect(screen, ref screenArea, 0); //Clear for next draw cycle
+            //screenData = (Sdl.SDL_Surface)Marshal.PtrToStructure(screen, typeof(Sdl.SDL_Surface)); //Put the screen data in its place
             DrawText(vera, "Creature Select", new Point2D(350, 20)); //Draw the title
 
             int m = 60;

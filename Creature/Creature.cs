@@ -3,40 +3,47 @@ using System.Drawing;
 using System.Collections.Generic;
 using System.Text;
 using Tao.Sdl;
-using KalaGame;
+using TimeLords;
+using TimeLords.Creature;
+using TimeLords.General;
+using System.Linq;
 
-namespace Adventurer
+namespace TimeLords
 {
+    [Serializable]
     public class Creature
     {
+        public CreatureStats Stats;
         #region Variables
-        public byte speed, strength, dexterity, constitution, intelligence, wisdom, charisma, level;
-        public byte turn_energy = 0;
-        public int senseOfSmell, creatureImage, turnsToWait, smelliness, mass, gold,
+        public byte strength, dexterity, constitution, intelligence, wisdom, charisma, level;
+        public byte turn_energy = Adventurer.TURN_THRESHOLD; // was zero
+        public int senseOfSmell, turnsToWait, smelliness, gold,
             minDLevel, blind, confusion, coma, detectItem, detectMonster, seeInvisible, invisibility, speedy, 
-			levitate, revive, sleep, food, seed, killCount, hp, mp, hpMax, mpMax, gp, xp, xpWorth, xpBorder; //TODO: Change to flags enum what we can
+			levitate, revive, sleep, food, seed, killCount, hp, mp, hpMax, mpMax, gp, xp, xpWorth, xpBorder;
         public bool isAlive, isDextrous, isPlayer;
         public byte xpLevel;
-        public string name, armorType;
+        public string armorType;
 		public Amulet amulet;
-        public Point2D targetPos, pos;
-        public Color color;
+        public Point targetPos, pos;
         public Random rng = new Random();
         public Dice rngDie = new Dice();
         public DNotation attack = new DNotation();
         public Item weapon;
-        public List<Item> inventory = new List<Item>();
-        public List<BodyPart> anatomy = new List<BodyPart>();
-        public List<BodyPart> lostParts = new List<BodyPart>();
-        public List<Armor> wornArmor = new List<Armor>();
-        public List<string> message = new List<string>(10);
+        public List<Item> inventory;
+        public List<BodyPart> anatomy;
+        public List<BodyPart> lostParts;
+        public List<Armor> wornArmor;
+        public List<string> message;
         public Sentience mind;
-        public byte status_paralyzed = 0;		
+        public byte status_paralyzed = 0;
         #endregion
 
-        public Creature(byte speed, DNotation attack, int creatureImage,
-            string name, Color color, List<BodyPart> anatomy, int mass, int rngSeed)
+        public Creature(CreatureGen gen) : this(gen.Stats, gen.rng.Next())
         {
+        }
+        public Creature(CreatureStats stats, int rngSeed)
+        {
+            Stats = stats;
             xpBorder = 10;
             level = 1;
             xpWorth = 1;
@@ -53,87 +60,116 @@ namespace Adventurer
             this.killCount = 0;
             this.food = 15000; //Start with 15000 food units
             this.isPlayer = false;
-            this.anatomy = new List<BodyPart>(anatomy);
             this.isAlive = true;
-            this.creatureImage = creatureImage;
-            this.speed = speed;
-            this.turnsToWait = speed;
+            this.turnsToWait = Stats.speed;
             this.mind = new Sentience();
-            this.name = name;
             this.smelliness = 32;
             this.senseOfSmell = 10;
-            this.color = color;
-            this.mass = mass;
             this.minDLevel = 1;
             this.rng = new Random(rngSeed);
 
+            wornArmor = new List<Armor>();
+            lostParts = new List<BodyPart>();
+            anatomy = new List<BodyPart>();
+            message = new List<string>(10);
+            inventory = new List<Item>();
+
             foreach (BodyPart b in this.anatomy)
             {
-                if (b.flags.HasFlag(BodyPartFlags.CanPickUpItem))
+                if (b.canPickUpItem)
                 {
                     this.isDextrous = true;
-                    b.flags |= BodyPartFlags.CanUseWeapon;
+                    b.canUseWeapon = true;
                 }
-            }
+            }   
         }
-        public Creature(Creature c)
+
+        public Creature DeepClone()
         {
-			this.gold = c.gold;
-			this.attack = new DNotation(c.attack); //Deep copy
-            this.turn_energy = c.turn_energy;
-            this.level = c.level;
-            this.xpWorth = c.xpWorth;
-            this.attack = c.attack;
-            this.xp = c.xp;
-            this.xpLevel = c.xpLevel;
-            this.xpBorder = c.xpBorder;
-            this.hp = c.hp;
-            this.hpMax = c.hpMax;
-            this.mp = c.mp;
-            this.mpMax = c.mpMax;
-            this.gp = c.gp;
-            this.killCount = c.killCount;
-            this.seed = c.seed;
-            this.food = c.food;
-            this.isPlayer = c.isPlayer;
-            this.rng = c.rng;
-            this.isAlive = true;
-            this.creatureImage = c.creatureImage;
-            this.speed = c.speed;
-            this.turnsToWait = c.speed;
-            this.mind = c.mind;
-            this.name = c.name;
-            this.smelliness = c.smelliness;
-            this.senseOfSmell = c.senseOfSmell;
-            this.mass = c.mass;
-            this.color = c.color;
-            this.pos = c.pos;
-            this.minDLevel = c.minDLevel;
-            this.armorType = c.armorType;
-            this.weapon = c.weapon;
-            this.strength = c.strength;
-            this.dexterity = c.dexterity;
-            this.constitution = c.constitution;
-            this.intelligence = c.intelligence;
-            this.wisdom = c.wisdom;
-            this.charisma = c.charisma;
-
-			this.anatomy = new List<BodyPart>();
-            foreach (BodyPart b in c.anatomy)
-                this.anatomy.Add(new BodyPart(b));
-			
-			this.inventory = new List<Item>();
-            foreach (Item i in c.inventory)
-                this.inventory.Add(i);
-			
-			this.wornArmor = new List<Armor>();
-            foreach (Armor a in c.wornArmor)
-                this.wornArmor.Add(a);
-
-            this.isDextrous = c.isDextrous;
+            var clone = new Creature(this.Stats, this.seed);
+            clone.Stats = this.Stats;
+            clone.xpBorder = xpBorder;
+            clone.level = level;
+            clone.xpWorth = xpWorth;
+            clone.hp = hp;
+            clone.hpMax = hpMax;
+            clone.mp = mp;
+            clone.mpMax = mpMax;
+            clone.gp = gp;
+            clone.xp = xp;
+            clone.xpLevel = xpLevel;
+            clone.seed = seed;
+            clone.gold = gold;
+            clone.attack = attack;
+            clone.killCount = killCount;
+            clone.food = food; //Start with 15000 food units
+            clone.isPlayer = isPlayer;
+            clone.isAlive = isAlive;
+            clone.turnsToWait = turnsToWait;
+            clone.mind = mind;
+            clone.smelliness = smelliness;
+            clone.senseOfSmell = senseOfSmell;
+            clone.minDLevel = minDLevel;
+            clone.wornArmor = wornArmor;
+            clone.lostParts = lostParts;
+            clone.anatomy = anatomy;
+            clone.message = message;
+            clone.inventory = inventory;
+            return clone;
         }
+        // This should be done with an equals or a Deep Copy - 
+        //     public Creature(Creature c)
+        //     {
+        //this.gold = c.gold;
+        //this.attack = new DNotation(c.attack); //Deep copy
+        //         this.turn_energy = c.turn_energy;
+        //         this.level = c.level;
+        //         this.xpWorth = c.xpWorth;
+        //         this.attack = c.attack;
+        //         this.xp = c.xp;
+        //         this.xpLevel = c.xpLevel;
+        //         this.hp = c.hp;
+        //         this.hpMax = c.hpMax;
+        //         this.mp = c.mp;
+        //         this.mpMax = c.mpMax;
+        //         this.gp = c.gp;
+        //         this.killCount = c.killCount;
+        //         this.seed = c.seed;
+        //         this.food = c.food;
+        //         this.isPlayer = c.isPlayer;
+        //         this.rng = c.rng;
+        //         this.isAlive = true;
+        //         this.Stats = c.Stats;
+        //         this.turnsToWait = c.Stats.speed;
+        //         this.smelliness = c.smelliness;
+        //         this.senseOfSmell = c.senseOfSmell;
+        //         this.pos = c.pos;
+        //         this.minDLevel = c.minDLevel;
+        //         this.armorType = c.armorType;
+        //         this.weapon = c.weapon;
+        //         this.strength = c.strength;
+        //         this.dexterity = c.dexterity;
+        //         this.constitution = c.constitution;
+        //         this.intelligence = c.intelligence;
+        //         this.wisdom = c.wisdom;
+        //         this.charisma = c.charisma;
 
-		public void Affect(Effect e, Level currentLevel)
+        //this.anatomy = new List<BodyPart>();
+        //         foreach (BodyPart b in c.anatomy)
+        //             this.anatomy.Add(new BodyPart(b));
+
+        //this.inventory = new List<Item>();
+        //         foreach (Item i in c.inventory)
+        //             this.inventory.Add(i);
+
+        //this.wornArmor = new List<Armor>();
+        //         foreach (Armor a in c.wornArmor)
+        //             this.wornArmor.Add(a);
+
+        //         this.isDextrous = c.isDextrous;
+        //     }
+
+        public void Affect(Effect e, Level currentLevel)
 		{
 			Affect(e, currentLevel, false); //No mute
 		}
@@ -193,10 +229,10 @@ namespace Adventurer
 			case "heal":
 				foreach (BodyPart b in anatomy)
                 {
-                    b.currentHealth += (int)(b.maxHealth * 0.25f);
+                    b.currentHealth += (int)((float)b.noInjury * 0.25f);
 
-                    if (b.currentHealth > b.maxHealth)
-                        b.currentHealth = b.maxHealth;
+                    if (b.currentHealth > b.noInjury)
+                        b.currentHealth = b.noInjury;
                 }
 
                 hp += e.magnitude;
@@ -246,7 +282,7 @@ namespace Adventurer
 			case "regenerate body part":
 				if (lostParts.Count > 0)
                 {
-                    lostParts[0].currentHealth = lostParts[0].maxHealth; //Heal part
+                    lostParts[0].currentHealth = lostParts[0].noInjury; //Heal part
                     anatomy.Add(lostParts[0]); //Restore part                    
                     if (!mute) message.Add("A shiver runs through your body, and your missing " + lostParts[0].name + " grows back where it once was, good as new.");
                     lostParts.RemoveAt(0);                    
@@ -274,7 +310,7 @@ namespace Adventurer
 				
 			case "speed":
 				speedy = e.magnitude;
-				speed *= (byte)(1 + (e.magnitude / 100)); //Percentage boost
+                    Stats.speed *= (byte)(1 + (e.magnitude / 100)); //Percentage boost
 				if (!mute) message.Add("You feel much faster.");
 				break;
 			}
@@ -282,15 +318,15 @@ namespace Adventurer
         public int AdjacentToCreatureDir(Level currentLevel)
         {
             #region Array of positions
-            Point2D[] newPos = new Point2D[10];
-            newPos[1] = new Point2D(this.pos.X - 1, this.pos.Y + 1); //1
-            newPos[2] = new Point2D(this.pos.X, this.pos.Y + 1); //2     
-            newPos[3] = new Point2D(this.pos.X + 1, this.pos.Y + 1); //3
-            newPos[4] = new Point2D(this.pos.X - 1, this.pos.Y);     //4 
-            newPos[6] = new Point2D(this.pos.X + 1, this.pos.Y);     //6
-            newPos[7] = new Point2D(this.pos.X - 1, this.pos.Y - 1); //7 
-            newPos[8] = new Point2D(this.pos.X, this.pos.Y - 1); //8     
-            newPos[9] = new Point2D(this.pos.X + 1, this.pos.Y - 1); //9 
+            Point[] newPos = new Point[10];
+            newPos[1] = new Point(this.pos.X - 1, this.pos.Y + 1); //1
+            newPos[2] = new Point(this.pos.X, this.pos.Y + 1); //2     
+            newPos[3] = new Point(this.pos.X + 1, this.pos.Y + 1); //3
+            newPos[4] = new Point(this.pos.X - 1, this.pos.Y);     //4 
+            newPos[6] = new Point(this.pos.X + 1, this.pos.Y);     //6
+            newPos[7] = new Point(this.pos.X - 1, this.pos.Y - 1); //7 
+            newPos[8] = new Point(this.pos.X, this.pos.Y - 1); //8     
+            newPos[9] = new Point(this.pos.X + 1, this.pos.Y - 1); //9 
             #endregion
 
             for (int i = 1; i <= 9; i++)
@@ -351,28 +387,21 @@ namespace Adventurer
 
             inventory.Remove(i);
         }
-        public bool CanMoveBorder(int dir)
+        public bool CanMoveBorder(Point newPos)
         {
-            #region Array of positions
-            Point2D[] newPos = new Point2D[10];
-            newPos[1] = new Point2D(this.pos.X - 1, this.pos.Y + 1);
-            newPos[2] = new Point2D(this.pos.X, this.pos.Y + 1);
-            newPos[3] = new Point2D(this.pos.X + 1, this.pos.Y + 1);
-            newPos[4] = new Point2D(this.pos.X - 1, this.pos.Y);
-            newPos[6] = new Point2D(this.pos.X + 1, this.pos.Y);
-            newPos[7] = new Point2D(this.pos.X - 1, this.pos.Y - 1);
-            newPos[8] = new Point2D(this.pos.X, this.pos.Y - 1);
-            newPos[9] = new Point2D(this.pos.X + 1, this.pos.Y - 1);
-            #endregion
-
-            if (newPos[dir].X < 1 || newPos[dir].Y < 1 || newPos[dir].X > Level.GRIDW - 1 || newPos[dir].Y > Level.GRIDH - 1)
+            if (newPos.X < 1 || newPos.Y < 1 || newPos.X > Level.GRIDW - 1 || newPos.Y > Level.GRIDH - 1)
+            {
                 return false;
+            }
 
             return true;
         }
-        public bool CanAttackMelee(Level currentLevel, Directions dir)
+        public bool CanAttackMelee(Level currentLevel, Point newPos)
         {
-            return currentLevel.IsCreatureAt(pos.AdjacentVector(dir));
+            if (currentLevel.IsCreatureAt(newPos))
+                return true;
+            else
+                return false;
         }
         public bool CanWear(Armor a)
         {
@@ -410,7 +439,7 @@ namespace Adventurer
         public bool CanWield(Item w)
         {
             foreach (BodyPart b in anatomy)
-                if (b.flags.HasFlag(BodyPartFlags.CanUseWeapon))
+                if (b.canUseWeapon)
                     return true; //If can wield weapon
 
             message.Add("You have no body parts that can use a weapon.");
@@ -448,7 +477,7 @@ namespace Adventurer
 			{
 				speedy--;
 				if (speedy <= 0)
-					speed = (byte)(speed*0.66); //Bring back to normal speed
+                    Stats.speed = (byte)(Stats.speed *0.66); //Bring back to normal speed
 			}
 			
 			if (amulet != null)
@@ -533,10 +562,10 @@ namespace Adventurer
         {
             int itemIndex = inventory.IndexOf(eatItem);
             this.message.Add("You ingest the " + eatItem.name + ".");
-            if (currentLevel.LineOfSight(currentLevel.creatures[0].pos, this.pos) &&
-                currentLevel.creatures[0].pos != this.pos) //If the player sees it and it's not the player
+            if (currentLevel.LineOfSight(currentLevel.creatureList[0].pos, this.pos) &&
+                currentLevel.creatureList[0].pos != this.pos) //If the player sees it and it's not the player
             {
-                currentLevel.creatures[0].message.Add("The " + this.name + " ingests a " + eatItem.name + ".");
+                currentLevel.creatureList[0].message.Add("The " + this.Stats.name + " ingests a " + eatItem.name + ".");
             }
 
             currentLevel = inventory[itemIndex].Eat(currentLevel, this);
@@ -545,15 +574,15 @@ namespace Adventurer
         public bool InMeleeRange(Level currentLevel)
         {
             #region Array of positions
-            Point2D[] newPos = new Point2D[9];
-            newPos[1] = new Point2D(this.pos.X - 1, this.pos.Y + 1); //1
-            newPos[2] = new Point2D(this.pos.X, this.pos.Y + 1); //2     
-            newPos[3] = new Point2D(this.pos.X + 1, this.pos.Y + 1); //3
-            newPos[4] = new Point2D(this.pos.X - 1, this.pos.Y);     //4 
-            newPos[6] = new Point2D(this.pos.X + 1, this.pos.Y);     //6
-            newPos[7] = new Point2D(this.pos.X - 1, this.pos.Y - 1); //7 
-            newPos[8] = new Point2D(this.pos.X, this.pos.Y - 1); //8     
-            newPos[9] = new Point2D(this.pos.X + 1, this.pos.Y - 1); //9 
+            Point[] newPos = new Point[9];
+            newPos[1] = new Point(this.pos.X - 1, this.pos.Y + 1); //1
+            newPos[2] = new Point(this.pos.X, this.pos.Y + 1); //2     
+            newPos[3] = new Point(this.pos.X + 1, this.pos.Y + 1); //3
+            newPos[4] = new Point(this.pos.X - 1, this.pos.Y);     //4 
+            newPos[6] = new Point(this.pos.X + 1, this.pos.Y);     //6
+            newPos[7] = new Point(this.pos.X - 1, this.pos.Y - 1); //7 
+            newPos[8] = new Point(this.pos.X, this.pos.Y - 1); //8     
+            newPos[9] = new Point(this.pos.X + 1, this.pos.Y - 1); //9 
             #endregion
 
             for (int i = 1; i <= 9; i++)
@@ -582,7 +611,7 @@ namespace Adventurer
         {
             lostParts.Add(b); //Keep track of lost, removed parts
 
-            Item part = new Item(100f, 100f, $"{name} {b.name}", Color.Red, new List<Item>(), new List<string>());            
+            Item part = new Item(Stats.name + " " + b.name, Color.Red);            
             part.edible = true;
             part.itemImage = 253;           
             part.nutrition = 500;
@@ -590,29 +619,32 @@ namespace Adventurer
 
             anatomy.Remove(b); //But do remove them.
         }
-        public Level MeleeAttack(Level currentLevel, Directions dir)
+        /// <summary>
+        /// Perform an attack on a creature.
+        /// TBD - use rulebook from D&D
+        /// </summary>
+        public Level MeleeAttack(Level currentLevel, Point newPos)
         {
-            if (dir == Directions.NONE)
-                throw new ArgumentOutOfRangeException("dir", "Attempted to melee attack own location");
             int opponentIndex = -1;
+            opponentIndex = currentLevel.CreatureNAt(newPos);
+            var opponent = currentLevel.creatureList[opponentIndex];
 
             #region Attack creature in given direction
-            if (currentLevel.CreatureNAt(pos.AdjacentVector(dir)) >= 0)
+            if (currentLevel.CreatureNAt(newPos) >= 0)
             {
-                opponentIndex = currentLevel.CreatureNAt(pos.AdjacentVector(dir));
-                var opponent = currentLevel.creatures[opponentIndex];
-
                 if (opponent is QuestGiver)
                 {
-                    //TODO: Make aggressive
+                    Creature c = (Creature)opponent;                    
+                    opponent = c.DeepClone(); //And then c was a monster
+                    message.Add("The " + c.Stats.name + " gets angry!"); //And s/he's mad.
                 }
 
                 byte chanceToMiss = 10;
                 chanceToMiss += (byte)(15 - dexterity);
                 if (rng.Next(0, 101) < chanceToMiss)
                 {
-                    message.Add("You miss the " + currentLevel.creatures[opponentIndex].name + ".");
-                    currentLevel.creatures[opponentIndex].message.Add("The " + name + " misses you.");
+                    message.Add("You miss the " + opponent.Stats.name + ".");
+                    opponent.message.Add("The " + Stats.name + " misses you.");
                 }
                 else
                 {
@@ -620,16 +652,28 @@ namespace Adventurer
                     if (weapon == null)
                         damage = rngDie.Roll(attack);
                     else
-                        damage = rngDie.Roll(weapon.damage);                    
+                        damage = rngDie.Roll(weapon.damage);
 
-                    int partIndex = rng.Next(0, currentLevel.creatures[opponentIndex].anatomy.Count);
-                    BodyPart part = currentLevel.creatures[opponentIndex].anatomy[partIndex];
-                    foreach (Armor a in wornArmor)
-                        foreach (string s in a.covers)
-                            if (s == part.name)
+                    BodyPart part = BodyPart.Default;
+                    int partIndex = rng.Next(0, opponent.anatomy.Count);
+                    if (opponent.anatomy.Any())
+                    {
+                        part = opponent.anatomy[partIndex];
+                    }
+
+                    if (opponent.wornArmor != null)
+                    {
+                        foreach (Armor a in opponent.wornArmor)
+                        {
+                            foreach (string s in a.covers)
                             {
-                                //damage -= a.aC;
-                            }                    
+                                if (s == part.name)
+                                {
+                                    //damage -= a.aC;
+                                }
+                            }
+                        }
+                    }
 
                     if (damage <= 0)
                     {
@@ -637,58 +681,57 @@ namespace Adventurer
                         message.Add("You deal no damage.");
                     }
 
-                    var damageBefore = currentLevel.creatures[opponentIndex].anatomy[partIndex].injury;
-                    currentLevel.creatures[opponentIndex].TakeDamage(damage);
-                    var damageAfter = currentLevel.creatures[opponentIndex].anatomy[partIndex].injury;
+                    float damageBefore = (float)part.currentHealth /
+                        (float)part.noInjury;
+                    opponent.TakeDamage(damage);
+                    float damageAfter = (float)part.currentHealth /
+                        (float)part.noInjury;
 
-                    message.Add("You hit the " + currentLevel.creatures[opponentIndex].name + " in the " +
+                    this.message.Add("You hit the " + opponent.Stats.name + " in the " +
                         part.name + " for " + damage + " damage.");
-                    currentLevel.creatures[opponentIndex].message.Add("The " + this.name + " hits you in the " +
+                    opponent.message.Add("The " + this.Stats.name + " hits you in the " +
                         part.name + " for " + damage + " damage.");
 
-                    if (damageBefore != damageAfter)
-                    {
-                        switch(damageAfter)
-                        {
-                            case InjuryLevel.Minor:
-                                message.Add($"You wound the {currentLevel.creatures[opponentIndex].name}'s {part.name}.");
-                                break;
-                            case InjuryLevel.Broken:
-                                message.Add($"You break the {currentLevel.creatures[opponentIndex].name}'s {part.name}.");
-                                break;
-                            case InjuryLevel.Mangled:
-                                message.Add($"You mangle the {currentLevel.creatures[opponentIndex].name}'s {part.name}.");
-                                break;
-                            case InjuryLevel.Destroyed:
-                                message.Add($"You obliterate the {currentLevel.creatures[opponentIndex].name}'s {part.name}.");
-                                break;
-                        }
-                    }
+                    if (damageBefore > 0.75 && damageAfter <= 0.75)
+                        this.message.Add("You wound the " + opponent.Stats.name + "'s " +
+                            part.name + ".");
+                    else if (damageBefore > 0.50 && damageAfter <= 0.50)
+                        this.message.Add("You break the " + opponent.Stats.name + "'s " +
+                            part.name + ".");
+                    else if (damageBefore > 0.25 && damageAfter <= 0.25)
+                        this.message.Add("You mangle the " + opponent.Stats.name + "'s " +
+                            part.name + ".");
+                    else if (damageBefore > 0.0 && damageAfter <= 0.0)
+                        this.message.Add("You obliterate the " + opponent.Stats.name + "'s " +
+                            part.name + ".");
 
                     if (weapon is Potion)
                     {
                         Potion p = (Potion)weapon;
-                        currentLevel.creatures[opponentIndex].inventory.Add(p);
-                        p.Eat(currentLevel, currentLevel.creatures[opponentIndex]); //Smash, effect affects the creature
-                        message.Add($"The ${p.name} smashes against the ${currentLevel.creatures[opponentIndex].name}");
+                        opponent.inventory.Add(p);
+                        p.Eat(currentLevel, opponent); //Smash, effect affects the creature
+                        this.message.Add("The " + p.name + " smashes against the " + opponent.Stats.name);
                         weapon = null; //Smashed, gone
                     }
 
                     if (opponentIndex == 0) //If player
                     {
-                        currentLevel.causeOfDeath = $"lethal damage to your {part.name}.";
-
-                        if(weapon == null)
-                            currentLevel.mannerOfDeath = $"you were hit in the {part.name} by a {name}.";
+                        currentLevel.causeOfDeath = "lethal damage to your " + part.name + ".";
+                        if (weapon == null)
+                        {
+                            currentLevel.mannerOfDeath = "you were hit in the " + part.name + " by a " + Stats.name + ".";
+                        }
                         else
-                            currentLevel.mannerOfDeath = $"you were struck in the {part.name} by a {weapon.name} wielded by a {name}.";                        
+                        {
+                            currentLevel.mannerOfDeath = "you were struck in the " + part.name + " by a " + weapon.name + " wielded by a " + Stats.name + ".";
+                        }
                     }
                 }
             }
             #endregion
 
             #region If Killed Opponent
-            if (currentLevel.creatures[opponentIndex].ShouldBeDead(currentLevel))
+            if (opponent.ShouldBeDead(currentLevel))
             {
                 if (opponentIndex == 0) //If it was the player
                 {
@@ -696,32 +739,29 @@ namespace Adventurer
                 }
                 else
                 {
-					Creature c = currentLevel.creatures[opponentIndex];
+					Creature c = opponent;
                     killCount++;
-                    xp += currentLevel.creatures[opponentIndex].xpWorth;
+                    xp += opponent.xpWorth;
                     if (xp > xpBorder*2) //AKA 20, 40, 80, 160
                         LevelUpForSlayingImp();
-                    int count = currentLevel.creatures[opponentIndex].inventory.Count;
+                    int count = opponent.inventory.Count;
                     for (int i = 0; i < count; i++)
-                        currentLevel = currentLevel.creatures[opponentIndex].Drop(currentLevel,
-                            currentLevel.creatures[opponentIndex].inventory[0]); //Drop on death
+                        currentLevel = opponent.Drop(currentLevel,
+                            opponent.inventory[0]); //Drop on death
+					
+					currentLevel.tileArray[c.pos.X, c.pos.Y].itemList.Add(new Currency(c.gold)); //Add item to tile 
 
-                    this.message.Add("You kill the " + currentLevel.creatures[opponentIndex].name + ".");
+                    this.message.Add("You kill the " + opponent.Stats.name + ".");
 
-                    if (currentLevel.creatures[opponentIndex].name == "dragon")
-                        this.message.Add("You monster.");
+                    if (opponent.Stats.name == "dragon")
+                        this.message.Add("Wow. Kalasen has no further challenges for you right now, congratulations.");
 
-                    Item corpse = new Item(500f, 
-                        500f, 
-                        $"{currentLevel.creatures[opponentIndex].name} corpse",
-					    currentLevel.creatures[opponentIndex].color,
-                        new List<Item>(),
-                        new List<string>()
-                    );
+                    Item corpse = new Item(opponent.Stats.name + " corpse",
+					                       opponent.Stats.color);
                     corpse.itemImage = 253; //"�"
                     corpse.edible = true;
                     corpse.nutrition = 3000; //For now, default to this
-                    currentLevel.tileArray[currentLevel.creatures[opponentIndex].pos.X, currentLevel.creatures[opponentIndex].pos.Y].itemList.Add(new Item(corpse)); //Gibs
+                    currentLevel.tileArray[opponent.pos.X, opponent.pos.Y].itemList.Add(new Item(corpse)); //Gibs
 
                     for (int y = 1; y < Level.GRIDH; y++)
                         for (int x = 1; x < Level.GRIDW; x++)
@@ -729,44 +769,44 @@ namespace Adventurer
                             currentLevel.tileArray[x, y].scentIdentifier.RemoveAt(opponentIndex); //Remove it from scent tracking
                             currentLevel.tileArray[x, y].scentMagnitude.RemoveAt(opponentIndex);
                         }
-                    currentLevel.creatures.RemoveAt(opponentIndex); //Creature is gone ***Improve with death drop***
+                    currentLevel.creatureList.RemoveAt(opponentIndex); //Creature is gone ***Improve with death drop***
                 }
             }
             #endregion
 
             return currentLevel; //Give back the level now that we're done with it
         }
-
-        //TODO: Update to use Directions enum
-        public bool Move(Level currentLevel, int dir)
+        public void Move_Random(Level level)
         {
-            #region Array of positions
-            Point2D[] newPos = new Point2D[10];
-            newPos[1] = new Point2D(this.pos.X - 1, this.pos.Y + 1); //1
-            newPos[2] = new Point2D(this.pos.X, this.pos.Y + 1); //2     
-            newPos[3] = new Point2D(this.pos.X + 1, this.pos.Y + 1); //3
-            newPos[4] = new Point2D(this.pos.X - 1, this.pos.Y);     //4 
-            newPos[6] = new Point2D(this.pos.X + 1, this.pos.Y);     //6
-            newPos[7] = new Point2D(this.pos.X - 1, this.pos.Y - 1); //7 
-            newPos[8] = new Point2D(this.pos.X, this.pos.Y - 1); //8     
-            newPos[9] = new Point2D(this.pos.X + 1, this.pos.Y - 1); //9 
-            #endregion
-
-            if (!currentLevel.IsCreatureAt(newPos[dir]) && //If no creature's there and..
-                currentLevel.tileArray[(int)newPos[dir].X, (int)newPos[dir].Y].isPassable) //...the tile is passable...
+            Monster_Move_Random(this, level);
+        }
+        public static void Monster_Move_Random(Creature c, Level level)
+        {
+            var which = Keyboard.NumPadDirections.ChooseRandom();
+            c.Move(level, Keyboard.ConsoleKeyToDirection(c.pos, which));
+        }
+        public bool Move(Level currentLevel, Point newPos)
+        {
+            if(!Mathematics.IsWithinBounds(newPos, currentLevel.tileArray))
             {
-                this.pos = newPos[dir];
+                // abort, you tried to walk off the edge.
+                message.Add("bump");
+                return false;
+            }
+            if (!currentLevel.IsCreatureAt(newPos) && //If no creature's there and..
+                currentLevel.tileArray[(int)newPos.X, (int)newPos.Y].isPassable) //...the tile is passable...
+            {
+                this.pos = newPos;
 				
 				if (confusion > 0 && rngDie.Roll(2) == 1) //If confused, then half the time...
 				{
-					dir = rng.Next(1,9); //1-8 //Randomize movement
-					if (dir >= 5)
-						dir++; //Skip 5
+                    var which = Keyboard.NumPadDirections.ChooseRandom();
+                    newPos = Keyboard.ConsoleKeyToDirection(newPos, which); //1-8 //Randomize movement
 				}
-                if (!String.IsNullOrEmpty(currentLevel.tileArray[newPos[dir].X, newPos[dir].Y].engraving))
+                if (!String.IsNullOrEmpty(currentLevel.tileArray[newPos.X, newPos.Y].engraving))
                 {
                     message.Add("Something is written here:");
-                    message.Add(currentLevel.tileArray[newPos[dir].X, newPos[dir].Y].engraving); //Any message here
+                    message.Add(currentLevel.tileArray[newPos.X, newPos.Y].engraving); //Any message here
                 }
 
                 if (currentLevel.tileArray[pos.X, pos.Y].fixtureLibrary.Count > 0) //Check what's there, if anything
@@ -778,7 +818,7 @@ namespace Adventurer
                             Trap t = (Trap)f; //"No, f, you are the traps. And then f was a trap
                             if (t.effect.type == "tripwire" && !(isPlayer && t.visible)) //If it's a tripwire... KEEP WORKING HERE
                             {
-                                if (isPlayer || currentLevel.LineOfSight(currentLevel.creatures[0].pos, pos))
+                                if (isPlayer || currentLevel.LineOfSight(currentLevel.creatureList[0].pos, pos))
                                 {
                                     t.visible = true; //We know it's here now
                                 }
@@ -789,18 +829,12 @@ namespace Adventurer
                         }
                     }
                 }
-
-                //If there's an item on the tile
-                if (currentLevel.tileArray[pos.X, pos.Y].itemList.Count > 0)
-                {
-                    message.Add("There is a " + currentLevel.tileArray[pos.X, pos.Y].itemList[0].name + " here.");
-                }
 				
 				return true; //Moving took a turn
             }
-            else if (currentLevel.tileArray[(int)newPos[dir].X, (int)newPos[dir].Y].isDoor && isDextrous)
+            else if (currentLevel.tileArray[(int)newPos.X, (int)newPos.Y].isDoor && isDextrous)
             {
-                OpenDoor(currentLevel.tileArray[(int)newPos[dir].X, (int)newPos[dir].Y], currentLevel);
+                OpenDoor(currentLevel.tileArray[(int)newPos.X, (int)newPos.Y], currentLevel);
                 message.Add("You open a door");
 				return true; //Door opening took a turn
             }
@@ -857,16 +891,16 @@ namespace Adventurer
             if (target is QuestGiver)
             {
                 Creature c = (Creature)target;
-                target = new Creature(c); //And then target was a monster
-                message.Add("The " + c.name + " gets angry!"); //And s/he's mad.
+                target = c.DeepClone(); //And then target was a monster
+                message.Add("The " + c.Stats.name + " gets angry!"); //And s/he's mad.
             }
 
             byte chanceToMiss = 10; //The chance to miss target
             chanceToMiss += (byte)(15 - dexterity); //Dex bonus
             if (rng.Next(0, 101) < chanceToMiss) //If miss
             {
-                message.Add("You miss the " + target.name + ".");
-                target.message.Add("The " + name + " misses you.");
+                message.Add("You miss the " + target.Stats.name + ".");
+                target.message.Add("The " + Stats.name + " misses you.");
                 currentLevel.tileArray[targetPos.X, targetPos.Y].itemList.Add(firedItem); //It ends up on selected tile                   
             }
             else
@@ -886,25 +920,25 @@ namespace Adventurer
 
                 target.TakeDamage(damage);
 
-                this.message.Add("You hit the " + target.name + " in the " + part.name + " for " + damage + " damage.");
-                target.message.Add("The " + this.name + " hits you in the " + part.name + " for " + damage + " damage.");
+                this.message.Add("You hit the " + target.Stats.name + " in the " + part.name + " for " + damage + " damage.");
+                target.message.Add("The " + this.Stats.name + " hits you in the " + part.name + " for " + damage + " damage.");
 
                 if (firedItem is Potion)
                 {
                     Potion p = (Potion)firedItem;
                     target.inventory.Add(p);
                     p.Eat(currentLevel, target); //Smash, effect affects the creature
-                    this.message.Add("The " + p.name + " smashes against the " + target.name);
+                    this.message.Add("The " + p.name + " smashes against the " + target.Stats.name);
                 }
                 else
                 {
                     currentLevel.tileArray[targetPos.X, targetPos.Y].itemList.Add(firedItem); //It ends up on selected tile
                 }
 
-                if (target == currentLevel.creatures[0]) //If player
+                if (target == currentLevel.creatureList[0]) //If player
                 {
                     currentLevel.causeOfDeath = "lethal damage to your " + part.name + ".";
-                    currentLevel.mannerOfDeath = "you were struck in the " + part.name + " by a " + firedItem.name + " thrown by a " + name + ".";
+                    currentLevel.mannerOfDeath = "you were struck in the " + part.name + " by a " + firedItem.name + " thrown by a " + Stats.name + ".";
                 }
 
                 inventory.Remove(firedItem); //Remove item from inventory
@@ -915,7 +949,7 @@ namespace Adventurer
             if (target.ShouldBeDead(currentLevel))
             {
                 killCount++;
-                if (currentLevel.creatures.IndexOf(target) == 0) //If it was the player
+                if (currentLevel.creatureList.IndexOf(target) == 0) //If it was the player
                 {
                     currentLevel.playerDiedHere = true;
                 }
@@ -925,12 +959,12 @@ namespace Adventurer
                     for (int i = 0; i < count; i++)
                         currentLevel = target.Drop(currentLevel, target.inventory[0]); //Drop on death
 
-                    this.message.Add("You kill the " + target.name + ".");
+                    this.message.Add("You kill the " + target.Stats.name + ".");
 
-                    if (target.name == "dragon")
-                        this.message.Add("You monster.");
+                    if (target.Stats.name == "dragon")
+                        this.message.Add("Wow. Kalasen has no further challenges for you right now, congratulations.");
 
-                    Item corpse = new Item(target.mass, target.mass, $"{target.name} corpse", target.color, new List<Item>(), new List<string>());
+                    Item corpse = new Item(target.Stats.name + " corpse", target.Stats.color);
                     corpse.itemImage = 253;
                     corpse.edible = true;
                     corpse.nutrition = 3000; //For now, default to this
@@ -939,10 +973,10 @@ namespace Adventurer
                     for (int y = 1; y < 40; y++)
                         for (int x = 1; x < 80; x++)
                         {
-                            currentLevel.tileArray[x, y].scentIdentifier.RemoveAt(currentLevel.creatures.IndexOf(target)); //Remove it from scent tracking
-                            currentLevel.tileArray[x, y].scentMagnitude.RemoveAt(currentLevel.creatures.IndexOf(target));
+                            currentLevel.tileArray[x, y].scentIdentifier.RemoveAt(currentLevel.creatureList.IndexOf(target)); //Remove it from scent tracking
+                            currentLevel.tileArray[x, y].scentMagnitude.RemoveAt(currentLevel.creatureList.IndexOf(target));
                         }
-                    currentLevel.creatures.RemoveAt(currentLevel.creatures.IndexOf(target)); //Creature is gone ***Improve with death drop***
+                    currentLevel.creatureList.RemoveAt(currentLevel.creatureList.IndexOf(target)); //Creature is gone ***Improve with death drop***
                 }
             }
             #endregion
@@ -971,7 +1005,7 @@ namespace Adventurer
         }
         public Level Scent(Level currentLevel)
         {
-            int index = currentLevel.creatures.IndexOf(this);
+            int index = currentLevel.creatureList.IndexOf(this);
             if (pos.X > 0 && pos.X < 80 && pos.Y > 0 && pos.Y < 40)
             {
                 currentLevel.tileArray[pos.X, pos.Y].scentMagnitude[index] += smelliness;
@@ -988,7 +1022,7 @@ namespace Adventurer
 
             foreach (BodyPart b in this.anatomy)
             {
-                if (b.flags.HasFlag(BodyPartFlags.LifeCritical) && b.injury == InjuryLevel.Destroyed) //If your head is chunky salsa, you're dead.          
+                if (b.lifeCritical && b.currentHealth <= 0) //If your head is chunky salsa, you're dead.          
                     return true;
             }
 
@@ -1010,11 +1044,11 @@ namespace Adventurer
             Scent(currentLevel);
             Regenerate(currentLevel);
 		}
-        public void Wear(Armor a)
+        public int Wear(Armor a)
         {
             wornArmor.Add(a);
             message.Add("You wear the " + a.name + ".");
-            inventory.Remove(a);
+            return inventory.Remove(a) ? 1 : 0;
         }
 		public void Wear(Amulet a, Level currentLevel)
 		{
@@ -1030,27 +1064,18 @@ namespace Adventurer
             inventory.Remove(a);
 			Affect(a.effect, currentLevel);
 		}
-        public void Wield(Item w)
+        public int Wield(Item w)
         {
-            if (weapon == null)
+            // Already weilding something?
+            if (weapon != null)
             {
-                weapon = w;
-                message.Add("You wield the " + w.name + ".");
-                inventory.Remove(w);
-            }
-            else
-            {
+                message.Add("You put away your " + weapon.name + " and now ...");
                 inventory.Add(weapon);
-                message.Add("You put away the wielded " + weapon.name + " and instead wield the " + w.name + ".");
-                weapon = w;
-                inventory.Remove(w);
-                
             }
-        }
 
-        public override string ToString()
-        {
-            return name;
+            weapon = w;
+            message.Add("You wield the " + w.name + ".");
+            return inventory.Remove(w) ? 1 : 0;
         }
     } //Whether monster or player, they're all creatures
 }
