@@ -1,17 +1,17 @@
-using KalaGame;
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Text;
 
-namespace Adventurer
+namespace TimeLords
 {
     public class Corridor
     {
-        public Point2D pointA {get;protected set;}
-        public Point2D pointB {get;protected set;}
+        public Point pointA {get;protected set;}
+        public Point pointB {get;protected set;}
 
-		public Corridor():this(new Point2D(), new Point2D()){}
-        public Corridor(Point2D a, Point2D b)
+		public Corridor():this(new Point(), new Point()){}
+        public Corridor(Point a, Point b)
         {
             this.pointA = a;
             this.pointB = b;

@@ -2,14 +2,21 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace Adventurer
+namespace TimeLords
 {
     public class Material
-    {			
+    {
+        public static Material air = new Material("Air",
+            new List<Molecule> { Molecule.H2O });
+
+        public static Material rock = new Material("Granite",
+            new List<Molecule> { Molecule.FeMgSiO4 });
+        
+
         public float boilPoint {get;set;}
 		public float meltPoint {get;set;}
 		public float density {get;set;}
-        public IEnumerable<Molecule> moleculeList {get;set;}
+        public List<Molecule> moleculeList {get;set;}
         public string name {get;set;}
 		
 		public bool isDiggable
@@ -38,8 +45,8 @@ namespace Adventurer
 
 		public Material():this("missingmaterial"){}
 		public Material(string name):this(name, new List<Molecule>()){}
-		public Material(string name, IEnumerable<Molecule> moleculeList):this(name, moleculeList, 1f, 1f, 1f){}
-        public Material(string name, IEnumerable<Molecule> moleculeList, float density, //TODO: Calculate boiling/melting point from molecules
+		public Material(string name, List<Molecule> moleculeList):this(name, moleculeList, 1f, 1f, 1f){}
+        public Material(string name, List<Molecule> moleculeList, float density,
             float boilPoint, float meltPoint)
         {
             this.name = name;

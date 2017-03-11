@@ -1,5 +1,5 @@
 using System;
-namespace Adventurer
+namespace TimeLords
 {
 	public class Shop : Room
 	{

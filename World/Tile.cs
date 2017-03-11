@@ -1,13 +1,15 @@
-using KalaGame;
+using System;
 using System.Collections.Generic;
+using System.Drawing;
+using System.Text;
+using static TimeLords.Adventurer;
 
-namespace Adventurer
+namespace TimeLords
 {
-    //Tiles that the dungeon is made of
     public class Tile
     {
 		public const float ROOMTEMP = 20; //Room temperature, in celsius: 20 celsius == 68 fahrenheit
-        public int lastSeenImage {get;set;}
+        public ConsoleTile lastSeenTile {get;set;}
         public float temperature {get;set;}
         public string engraving {get;set;}
         public List<int> scentMagnitude {get;set;}
@@ -17,11 +19,15 @@ namespace Adventurer
         public Material material {get;set;}
         public int tileImage {get;set;}
 		public int adjacentToRoomN {get;set;}
-		public Point2D pos {get;set;}
+		public Point pos {get;set;}
         public List<Item> itemList {get;set;}
         public List<Fixture> fixtureLibrary {get;set;}
 
-		public Tile():this(Adventurer.air){}
+        public const int BlankImage = Int32.MinValue;
+
+		public Tile():this(Material.air){}
+        public Tile(Material m) : this(m.density < 1.5f, m, BlankImage, true, true)
+        { }
         public Tile(bool passable, Material mat, int image, bool roomable, bool transparent)
         {
 			this.itemList = new List<Item>();
@@ -29,6 +35,7 @@ namespace Adventurer
 			this.scentMagnitude = new List<int>();
 			this.fixtureLibrary = new List<Fixture>();
             this.temperature = ROOMTEMP; //20 Celsius = 68 Fahrenheit
+
             this.isPassable = passable;
             material = mat;
             tileImage = image;
@@ -37,19 +44,8 @@ namespace Adventurer
             hasBeenSeen = false;
             adjacentToRoomN = 0;
         }
-		public Tile(Material m)
-		{			
-			this.fixtureLibrary = new List<Fixture>();
-			this.material = m;
-			if (m.density < 1.5f) //If not too dense
-			{
-				isPassable = true;
-			}
-		}
-		public Tile(Tile t)
-		{
-			
-		}
+		
+		
 
         public void MakeOpen()
         {
@@ -57,5 +53,5 @@ namespace Adventurer
             isPassable = true;
             isWall = false;
         }
-    }
+    } //Tiles that the dungeon is made of
 }

@@ -2,9 +2,9 @@ using System;
 using System.Net.Mime;
 using System.Collections.Generic;
 using System.Text;
-using KalaGame;
+using System.Drawing;
 
-namespace Adventurer
+namespace TimeLords
 {
     public class Room
     {
@@ -21,7 +21,7 @@ namespace Adventurer
             this.doorCount = 0;
         }
 		
-		public bool IsInRoom(Point2D pos)
+		public bool IsInRoom(Point pos)
 		{
 			return (pos.X >= x &&
 			    	pos.X <= x + width &&
