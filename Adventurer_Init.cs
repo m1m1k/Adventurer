@@ -1,71 +1,107 @@
 using System; //General C# functions
-using System.Linq;
+using System.Collections.Generic;
 using System.Drawing; //The colors, man
 using System.IO; //So we can read and write files
+using System.Linq;
 using System.Runtime.InteropServices; //For use in wrangling pointers in their place
 using Tao.Sdl;
-using KalaGame;
+using TimeLords;
 
-namespace Adventurer
+namespace TimeLords
 {
 	public partial class Adventurer
 	{
+		#region Variables
         public static int baseSeed = (int)DateTime.Now.Ticks;
         public static int worldSeed = baseSeed;
+		#endregion
+		
+		static void Init_PreInitialize()
+        {			
+            //Sdl.SDL_Init(Sdl.SDL_INIT_VIDEO); //Set up the video display
+            //SdlTtf.TTF_Init(); //Set up the text rendering
 
-        static void Init_PreInitialize()
-        {
-            Sdl.SDL_Init(Sdl.SDL_INIT_VIDEO); //Set up the video display
-            SdlTtf.TTF_Init(); //Set up the text rendering
+            //screen = Sdl.SDL_SetVideoMode(windowSizeX, windowSizeY, 8, Sdl.SDL_SWSURFACE); //Set up the screen.
+            //screenData = (Sdl.SDL_Surface)Marshal.PtrToStructure(screen, typeof(Sdl.SDL_Surface)); //Put the screen data in its place
 
-            screen = Sdl.SDL_SetVideoMode(windowSizeX, windowSizeY, 8, Sdl.SDL_SWSURFACE); //Set up the screen.
-            screenData = (Sdl.SDL_Surface)Marshal.PtrToStructure(screen, typeof(Sdl.SDL_Surface)); //Put the screen data in its place
+            //screenArea.w = target.w = (short)screenData.w; //Get width of image
+            //screenArea.h = target.h = (short)screenData.h; //Get height of image
+            //screenArea.x = 0; //Get all the image
+            //screenArea.y = 0; //Get all the image
 
-            screenArea.w = target.w = (short)screenData.w; //Get width of image
-            screenArea.h = target.h = (short)screenData.h; //Get height of image
-            screenArea.x = 0; //Get all the image
-            screenArea.y = 0; //Get all the image
-
-            Sdl.SDL_WM_SetCaption("Adventurer", "Adventurer");
+            //Sdl.SDL_WM_SetCaption("Adventurer", "Adventurer");
         } //Stuff that goes before load content
         static void Init_LoadContent()
         {
-            vera = SdlTtf.TTF_OpenFont("Content/Fonts/Vera.ttf", 24); //Load in 12-point Vera font.
-            veraData = (SdlTtf.TTF_Font)Marshal.PtrToStructure(vera, typeof(SdlTtf.TTF_Font)); //Put the font data in its place            
+            //vera = SdlTtf.TTF_OpenFont("Content/Fonts/Vera.ttf", 24); //Load in 12-point Vera font.
+            //veraData = (SdlTtf.TTF_Font)Marshal.PtrToStructure(vera, typeof(SdlTtf.TTF_Font)); //Put the font data in its place            
 
-            veraSmall = SdlTtf.TTF_OpenFont("Content/Fonts/Vera.ttf", 10); //Load in 12-point Vera font.
-            veraSmallData = (SdlTtf.TTF_Font)Marshal.PtrToStructure(vera, typeof(SdlTtf.TTF_Font)); //Put the font data in its place
-
-            DrawText(veraSmall, "Pre-initialization complete", new Point2D(15, 15));
-            DrawText(veraSmall, "Fonts loaded; loading images...", new Point2D(15, 30));
-            Sdl.SDL_Flip(screen); //Update screen
+            //veraSmall = SdlTtf.TTF_OpenFont("Content/Fonts/Vera.ttf", 10); //Load in 12-point Vera font.
+            //veraSmallData = (SdlTtf.TTF_Font)Marshal.PtrToStructure(vera, typeof(SdlTtf.TTF_Font)); //Put the font data in its place
+            var veraSmall = FontFamily.GenericMonospace;
+            DrawText(veraSmall, "Pre-initialization complete", new Point(15, 15));
+            DrawText(veraSmall, "Fonts loaded; loading images...", new Point(15, 30));
+            //Sdl.SDL_Flip(screen); //Update screen
 			
-			IntPtr rwop = Sdl.SDL_RWFromFile("Content/Tiles/ASCII_Tileset.PNG", "rb");			
-			IntPtr tileSet = SdlImage.IMG_LoadPNG_RW(rwop);
+			//IntPtr rwop = Sdl.SDL_RWFromFile("Content/Tiles/ASCII_Tileset.PNG", "rb");			
+			//IntPtr tileSet = SdlImage.IMG_LoadPNG_RW(rwop);
             
             short n = 0;
-            target.w = source.w = TILEWIDTH; //I love this combination thing
-            target.h = source.h = TILEHEIGHT; //It's so elegant
+            target.w = source.w = (short)TILEWIDTH; //I love this combination thing
+            target.h = source.h = (short)TILEHEIGHT; //It's so elegant
             
+            // Background?
             for (byte y = 0; y < 16; y++)
                 for (byte x = 0; x < 16; x++) //16x16 tiles
                 {
                     source.x = (short)(x * 17); //X to grab from
                     source.y = (short)(y * 17); //Y to grab from
 
-                    image[n] = Sdl.SDL_CreateRGBSurface(Sdl.SDL_SWSURFACE, TILEWIDTH, TILEHEIGHT, 32, 0, 0, 0, 0); //Allocate image area
-                    Sdl.SDL_BlitSurface(tileSet, ref source, image[n], ref target);
-                    image[n] = Sdl.SDL_DisplayFormatAlpha(image[n]);
-                    imageData[n] = (Sdl.SDL_Surface)Marshal.PtrToStructure(image[n], typeof(Sdl.SDL_Surface)); //Put the image data in its place
-                    Transparencify(n, Color.Magenta); //Magenta is the transparent color
-                    image[n] = Sdl.SDL_DisplayFormatAlpha(image[n]);
-                    imageData[n] = (Sdl.SDL_Surface)Marshal.PtrToStructure(image[n], typeof(Sdl.SDL_Surface)); //Put the image data in its place
+                    //image[n] = Sdl.SDL_CreateRGBSurface(Sdl.SDL_SWSURFACE, TILEWIDTH, TILEHEIGHT, 32, 0, 0, 0, 0); //Allocate image area
+                    //Sdl.SDL_BlitSurface(tileSet, ref source, image[n], ref target);
+                    //image[n] = Sdl.SDL_DisplayFormatAlpha(image[n]);
+                    //imageData[n] = (Sdl.SDL_Surface)Marshal.PtrToStructure(image[n], typeof(Sdl.SDL_Surface)); //Put the image data in its place
+                    //Transparencify(n, Color.Magenta); //Magenta is the transparent color
+                    //image[n] = Sdl.SDL_DisplayFormatAlpha(image[n]);
+                    //imageData[n] = (Sdl.SDL_Surface)Marshal.PtrToStructure(image[n], typeof(Sdl.SDL_Surface)); //Put the image data in its place
                     n++;
                 }
+
+            DrawText(veraSmall, "Images loaded; loading atoms...", 15, 45);
+            //Sdl.SDL_Flip(screen); //Update screen
+
+            atomLibrary = FileL_Atoms(); //Load in the atom library
+
+            DrawText(veraSmall, "Atoms loaded; loading molecules...", 15, 60);
+            //Sdl.SDL_Flip(screen); //Update screen
+
+            moleculeLibrary = FileL_Molecules(atomLibrary); //Load in the molecule library
+
+            DrawText(veraSmall, "Molecules loaded; loading materials...", 15, 75);
+            //Sdl.SDL_Flip(screen); //Update screen
+
+			stoneMaterials = FileL_Materials(moleculeLibrary, "Stones.txt"); //Load in the stone types
+            materialLibrary = FileL_Materials(moleculeLibrary, "Materials.txt"); //Load in the material library
+            DrawText(veraSmall, "Materials loaded; loading items...", 15, 90);
+            //Sdl.SDL_Flip(screen); //Update screen
+
+			itemLibrary = FileL_Item(materialLibrary, "Components.txt");
+            itemLibrary.AddRange(FileL_Item(materialLibrary, "Items.txt"));
+
+            DrawText(veraSmall, "Items loaded; loading creatures...", 15, 105);
+            //Sdl.SDL_Flip(screen); //Update screen
+
+            bestiary = FileL_Creatures(itemLibrary);
+            if(bestiary == null || !bestiary.Any())
+            {
+                bestiary = new List<CreatureGen> {
+                    new CreatureGen(CreatureStats.Unknown.DeepClone(), 57)
+                };
+            }
 			
-            DrawText(veraSmall, "Creatures loaded. External content loading complete.", new Point2D(15, 120));
-            DrawText(veraSmall, "Post-initializing...", new Point2D(15, 135));
-            Sdl.SDL_Flip(screen); //Update screen
+            DrawText(veraSmall, "Creatures loaded. External content loading complete.", new Point(15, 120));
+            DrawText(veraSmall, "Post-initializing...", new Point(15, 135));
+            //Sdl.SDL_Flip(screen); //Update screen
         } //Loads in the external content
         static void Init_PostInitialize()
         {
@@ -82,12 +118,12 @@ namespace Adventurer
                     {
                         levelSeed[x, y, z] = rng.Next(); //Seed the world
                     }
+			
 
             rock = content.materials.First(m => m.name ==  "shale"); //Shale is our default rock
             air = content.materials.First(m => m.name == "air"); //TODO: figure out why we're holding on to air and rock, we have Linq now
-
-            DrawText(veraSmall, "Post-initialization complete. Starting main menu...", new Point2D(15, 150));
-            Sdl.SDL_Flip(screen); //Update screen      
+            DrawText(veraSmall, "Post-initialization complete. Starting main menu...", new Point(15, 150));
+            //Sdl.SDL_Flip(screen); //Update screen      
 
             //Thread.Sleep(10000); //Pause to allow review of loading steps
         } //Sets up everything needed after load content		
