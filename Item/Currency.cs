@@ -1,15 +1,16 @@
 using System;
-using System.Collections.Generic;
 using System.Drawing;
 
-namespace Adventurer
+namespace TimeLords
 {
 	public class Currency : Item
 	{
 		public int worth {get; protected set;}
 		
-		public Currency(float mass, int volume, string name, Color color, int worth, List<Item> components, List<string> uses)
-			:base(mass, volume, name, color, components, uses)
+		public Currency() :this(1){}
+		public Currency(int worth) :this(1f, 1, "coin", Color.Gold, worth){}
+		public Currency(float mass, int volume, string name, Color color, int worth)
+			:base(mass, volume, name, color)
 		{
 			this.worth = worth;
 			base.itemImage = 36;

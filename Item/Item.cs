@@ -1,26 +1,27 @@
-using KalaGame;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Text;
 using Tao.Sdl;
 
-namespace Adventurer
+namespace TimeLords
 {
+    [Serializable]
     public class Item
     {
+        public static readonly Item Unknown = new Item("stick", Color.Brown);
+
         public DNotation damage {get;set;}
         public float mass {get;set;}
         public bool edible {get;set;}
 		public bool bladed {get;set;}
         public float volume {get;set;}
         public int nutrition {get;set;}
-        public int itemImage {get;set;} //TODO: Make enum?
+        public int itemImage {get;set;}
         public string name {get;set;}
         public List<string> use {get;set;} //A list of things that can be done with this item
         public Color color {get;set;}
         public List<Item> componentList {get;set;}
-        //TODO: Get effect from componentList
         public Effect eatEffect {get;set;}
 		
 		protected Material materialRaw;
@@ -53,12 +54,20 @@ namespace Adventurer
 					materialRaw = value;
 			}
 		}
-        
+
+		public Item() :this("missingno(Item)"){}
+		public Item(string name) :this(1f, 1f, name){}
+		public Item(string name, Color color) :this(1f, 1f, name, color){}
+		public Item(string name, Color color, List<Item> componentList) :this(1f, 1f, name, color, componentList){}
+        public Item(float mass, float volume, string name) :this(mass, volume, name, Color.White){}
+		public Item(float mass, float volume, string name, Color color):this(mass,volume,name,color, new List<Item>(), new List<string>()){}
+		public Item(float mass, float volume, string name, Color color, List<Item> componentList)
+			:this(mass,volume,name,color, componentList, new List<string>()){}
 		public Item(float mass, float volume, string name, Color color, List<Item> componentList, List<string> use)
 		{			
 			this.componentList = new List<Item>();
 			foreach (Item i in componentList)
-				this.componentList.Add(new Item(i));
+				this.componentList.Add(CopyDeep(i));
 			
 			this.use = use;
 			this.edible = false;
@@ -108,22 +117,20 @@ namespace Adventurer
 			else
 				return new Item(i);
 		}
-
-        //TODO: Really shouldn't need to return and reference Level here
         public virtual Level Eat(Level currentLevel, Creature consumer)
         {
-            int creatureIndex = currentLevel.creatures.IndexOf(consumer);
+            int creatureIndex = currentLevel.creatureList.IndexOf(consumer);
 
             if (!edible)
             {
-                consumer.hp -= damage.nDie * damage.sides + damage.bonus; //Full damage
-                currentLevel.creatures[creatureIndex].message.Add("That was less than edible.");
+                consumer.hp -= damage.dNum * damage.sides + damage.bonus; //Full damage
+                currentLevel.creatureList[creatureIndex].message.Add("That was less than edible.");
                 currentLevel.causeOfDeath = "internal damage to your stomach";
                 currentLevel.mannerOfDeath = "you swallowed a " + name;
             }
 
             consumer.food += nutrition;
-            currentLevel.creatures[creatureIndex].inventory.Remove(this);
+            currentLevel.creatureList[creatureIndex].inventory.Remove(this);
             return currentLevel;
         }
 
