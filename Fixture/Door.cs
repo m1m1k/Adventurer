@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Text;
 using Tao.Sdl;
 
-namespace Adventurer
+namespace TimeLords
 {
     public class Door : Fixture
     {
@@ -23,7 +23,7 @@ namespace Adventurer
 
         public void Close(Tile tile, Level currentLevel)
         {
-            foreach (Creature c in currentLevel.creatures)
+            foreach (Creature c in currentLevel.creatureList)
                 if (currentLevel.tileArray[(int)tile.pos.X, (int)tile.pos.Y].pos == c.pos)
                     return; //Stop if a creature's blocking it.
 

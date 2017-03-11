@@ -4,9 +4,9 @@ using System.Collections.Generic;
 using System.Text;
 using Tao.Sdl;
 
-namespace Adventurer
+namespace TimeLords
 {
-    class Tree : Fixture //TODO: Make public?
+    class Tree : Fixture
     {
         public string species, fruit; //Change to enum?
 

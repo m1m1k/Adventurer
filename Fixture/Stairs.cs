@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Text;
 using Tao.Sdl;
 
-namespace Adventurer
+namespace TimeLords
 {
     public class Stairs : Fixture
     {
