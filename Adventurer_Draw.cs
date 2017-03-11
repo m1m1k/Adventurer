@@ -1,12 +1,14 @@
 using System; //General C# functions
-using System.Linq; //Enable Queue reversing
 using System.Collections.Generic; //So I can use List
 using System.Drawing; //The colors, man
+using System.Linq;
 using System.Runtime.InteropServices; //For use in wrangling pointers in their place
 using Tao.Sdl;
-using KalaGame;
+using TimeLords;
+using TimeLords.Creature;
+using TimeLords.General;
 
-namespace Adventurer
+namespace TimeLords
 {
 	public partial class Adventurer
 	{
@@ -16,7 +18,7 @@ namespace Adventurer
 		
 		public static Sdl.SDL_Surface screenData; //The screen bitmap        
         public static Sdl.SDL_Surface[] imageData = new Sdl.SDL_Surface[256]; //The image bitmaps
-        static IntPtr screen; //Pointer to screen bitmap
+        public static IntPtr screen; //Pointer to screen bitmap
         public static IntPtr[] image = new IntPtr[256]; //Pointer to image data
         public static Sdl.SDL_Rect screenArea; //The area of the screen
         public static Sdl.SDL_Rect source; //A source rectangle to pull an image from
@@ -25,17 +27,13 @@ namespace Adventurer
         public static int windowSizeY = 750; //The vertical size of the screen
 		
         public static SdlTtf.TTF_Font veraData; //The data of the font
-        static IntPtr vera; //The pointer to the font
+        public static FontFamily vera = FontFamily.GenericMonospace; //The pointer to the font
         public static SdlTtf.TTF_Font veraSmallData; //The data of the font
-        static IntPtr veraSmall; //The pointer to the font
+        public static FontFamily veraSmall = FontFamily.GenericMonospace; //The pointer to the font
 		#endregion
 
-        static void Draw()
+        static void ClearAndDraw()
         {
-            Sdl.SDL_FillRect(screen, ref screenArea, 0); //Clear for next draw cycle
-            screenData = (Sdl.SDL_Surface)Marshal.PtrToStructure(screen, typeof(Sdl.SDL_Surface)); //Put the screen data in its place
-            
-			switch (Adventurer.gameState)
 			{
 			case GameState.OpeningMenu:
 				Draw_Opening();
@@ -74,49 +72,59 @@ namespace Adventurer
 				break;
 			}
 			
-            Sdl.SDL_Flip(screen); //Update screen
+            ////Sdl.SDL_Flip(screen); //Update screen
         } //Draws things to the screen
 		
+        public enum OpeningMenuOptions
+        {
+            Start_Game = 1,
+            Help = 2,
+            Quit = 3
+        }
 		static void Draw_Opening()
+        {
+            ClearScreen();
+            DrawText(vera, "Adventurer 0.0.2.8", new Point(windowSizeX / 2 - 130, 20), Color.White);
+            DrawText(vera, "by", new Point(windowSizeX / 2 - 50, 50), Color.White);
+            DrawText(vera, "Kalasen Zyphurus", new Point(windowSizeX / 2 - 130, 80), Color.White);
+            DrawMenuOptions();
+        }
+
+        private static void DrawMenuOptions()
+        {
+            string selectedText = Enum.GetName(typeof(OpeningMenuOptions), (OpeningMenuOptions)selectionCursor);
+            foreach (var option in Enum.GetNames(typeof(OpeningMenuOptions)))
+            {
+                if (option == selectedText)
+                {
+                    DrawText(vera, string.Format("<{0}>", option), new Point(350, windowSizeY / 2), Color.White);
+                }
+                else
+                {
+                    DrawText(vera, string.Format("{0}", option), new Point(350, windowSizeY / 2), Color.Gray);
+                }
+            }
+        }
+
+        static void Draw_Name()
 		{
-            DrawText(vera, "Adventurer", new Point2D(windowSizeX / 2 - 130, 20), Color.White);
-            DrawText(vera, "by", new Point2D(windowSizeX / 2 - 50, 50), Color.White);
-            DrawText(vera, "Kalasen Zyphurus", new Point2D(windowSizeX / 2 - 130, 80), Color.White);
-
-            if (selectionCursor == 1) //If New Game is highlighted
-                DrawText(vera, "<Start Game>", new Point2D(350, windowSizeY / 2), Color.White);
-            else
-                DrawText(vera, "Start Game", new Point2D(350, windowSizeY / 2), Color.Gray);
-
-            if (selectionCursor == 2) //If Help is highlighted
-                DrawText(vera, "<Help>", new Point2D(350, windowSizeY / 2 + 30), Color.White);
-            else
-                DrawText(vera, "Help", new Point2D(350, windowSizeY / 2 + 30), Color.Gray);
-
-            if (selectionCursor == 3) //If Quit is highlighted
-                DrawText(vera, "<Quit>", new Point2D(350, windowSizeY / 2 + 60), Color.White);
-            else
-                DrawText(vera, "Quit", new Point2D(350, windowSizeY / 2 + 60), Color.Gray);
-		}
-		static void Draw_Name()
-		{
-	        DrawText(vera, "Name Select", new Point2D(windowSizeX / 2 - 130, 20), Color.White);
-            DrawText(veraSmall, "Enter name: " + sessionName, new Point2D(windowSizeX / 2 - 130, windowSizeY / 2), Color.White);
+	        DrawText(vera, "Name Select", new Point(windowSizeX / 2 - 130, 20), Color.White);
+            DrawText(veraSmall, "Enter name: " + sessionName, new Point(windowSizeX / 2 - 130, windowSizeY / 2), Color.White);
 		}
 		static void Draw_CreatureSel()
 		{
-            DrawText(vera, "Creature Select", new Point2D(350, 20)); //Draw the title
+            DrawText(vera, "Creature Select", new Point(350, 20)); //Draw the title
 
             int m = 60;
             Queue<string> items = new Queue<string>();
-            foreach (Species item in content.bestiary)
+            foreach (CreatureGen item in bestiary)
             {
                 if (items.Count >= 26)
                 {
                     items.Dequeue(); //Don't let there be more than 26 in the queue
                 }
 
-                items.Enqueue(CapitalizeFirst(item.name));
+                items.Enqueue(CapitalizeFirst(item.Stats.name));
             }
 
             int count = items.Count;
@@ -179,55 +187,57 @@ namespace Adventurer
                 #endregion
 
                 DrawText(veraSmall, s + ": " + items.Dequeue(),
-                    new Point2D(350, m), Color.White);
+                    new Point(350, m), Color.White);
             }
 
             items.Clear();
 		}
 		static void Draw_Help()
 		{
-            DrawText(vera, "Help", new Point2D(400, 20), Color.White);
-            DrawText(vera, "Controls:", new Point2D(10, 50), Color.White);
-            DrawText(veraSmall, "Movement: arrows, end, home, pgup, pgdn; numpad", new Point2D(10, 80), Color.White);
+            DrawText(vera, "Help", new Point(400, 20), Color.White);
+            DrawText(vera, "Controls:", new Point(10, 50), Color.White);
+            DrawText(veraSmall, "Movement: arrows, end, home, pgup, pgdn; numpad", new Point(10, 80), Color.White);
 
-            DrawText(veraSmall, "c - Close", new Point2D(10, 95), Color.White);
-            DrawText(veraSmall, "e - Engrave", new Point2D(10, 110), Color.White);
-            DrawText(veraSmall, "h - Debug digging", new Point2D(10, 125), Color.White);
-            DrawText(veraSmall, "i - Inventory menu", new Point2D(10, 140), Color.White);
-            DrawText(veraSmall, "k - Kick/Dismantle", new Point2D(10, 155), Color.White);
-            DrawText(veraSmall, "l (L) - Toggle debug omnivision", new Point2D(10, 170), Color.White);
-            DrawText(veraSmall, "o - Open", new Point2D(10, 185), Color.White);
-            DrawText(veraSmall, "w - Unwield an item", new Point2D(10, 200), Color.White);
-            DrawText(veraSmall, "W - Remove an item", new Point2D(10, 215), Color.White);
-            DrawText(veraSmall, "x - Examine at range", new Point2D(10, 230), Color.White);
-            DrawText(veraSmall, "X - Debug mode", new Point2D(10, 245), Color.White);
-            DrawText(veraSmall, "z - Status", new Point2D(10, 260), Color.White);
-            DrawText(veraSmall, ", - Pick up item", new Point2D(10, 275), Color.White);
+            DrawText(veraSmall, "c - Close", new Point(10, 95), Color.White);
+            DrawText(veraSmall, "e - Engrave", new Point(10, 110), Color.White);
+            DrawText(veraSmall, "h - Debug digging", new Point(10, 125), Color.White);
+            DrawText(veraSmall, "i - Inventory menu", new Point(10, 140), Color.White);
+            DrawText(veraSmall, "k - Kick/Dismantle", new Point(10, 155), Color.White);
+            DrawText(veraSmall, "l (L) - Toggle debug omnivision", new Point(10, 170), Color.White);
+            DrawText(veraSmall, "o - Open", new Point(10, 185), Color.White);
+            DrawText(veraSmall, "w - Unwield an item", new Point(10, 200), Color.White);
+            DrawText(veraSmall, "W - Remove an item", new Point(10, 215), Color.White);
+            DrawText(veraSmall, "x - Examine at range", new Point(10, 230), Color.White);
+            DrawText(veraSmall, "X - Debug mode", new Point(10, 245), Color.White);
+            DrawText(veraSmall, "z - Status", new Point(10, 260), Color.White);
+            DrawText(veraSmall, ", - Pick up item", new Point(10, 275), Color.White);
 
-            DrawText(veraSmall, "Esc (Normal Game) - Main menu", new Point2D(10, 305), Color.White);
-            DrawText(veraSmall, "Space, Escape - Back a menu", new Point2D(10, 320), Color.White);
+            DrawText(veraSmall, "Esc (Normal Game) - Main menu", new Point(10, 305), Color.White);
+            DrawText(veraSmall, "Space, Escape - Back a menu", new Point(10, 320), Color.White);
 		}
 		static void Draw_Main()
 		{
             Draw_HUD();			
 			Draw_Tiles();
-		}
-		static void Draw_Inventory()
+            DrawMessageBox(); // putting this on the bottom so the screen doesn't flash so much...
+        }
+        static void Draw_Inventory()
 		{
 			Draw_Main(); //Need the background
-            SdlGfx.boxColor(screen, (short)(windowSizeX * 0.66), 0, (short)windowSizeX, (short)windowSizeY,
-                Color.FromArgb(1, 1, 1, 255).ToArgb()); //Black backdrop
-            SdlGfx.rectangleColor(screen, (short)(windowSizeX * 0.66), 0, (short)windowSizeX, (short)windowSizeY,
-                Color.White.ToArgb()); //White border
-            DrawText(vera, "Inventory Menu", new Point2D(690, 20), Color.White);
-            DrawText(veraSmall, "Cancel: Space", new Point2D(605, windowSizeY - 20), Color.White);
+            //SdlGfx.boxColor(screen, (short)(windowSizeX * 0.66), 0, (short)windowSizeX, (short)windowSizeY,
+            //    Color.FromArgb(1, 1, 1, 255).ToArgb()); //Black backdrop
+            //SdlGfx.rectangleColor(screen, (short)(windowSizeX * 0.66), 0, (short)windowSizeX, (short)windowSizeY,
+            //    Color.White.ToArgb()); //White border
+            ClearScreen();
+            DrawText(vera, "Inventory Menu", new Point(690, 20), Color.White);
+            DrawText(veraSmall, "Cancel: Space", new Point(605, windowSizeY - 20), Color.White);
 
             #region List items
             if (inventorySelect == 0) //If none selected
             {
                 int m = 60;
                 Queue<string> items = new Queue<string>();
-                foreach (Item item in currentLevel.creatures[0].inventory)
+                foreach (Item item in currentLevel.creatureList[0].inventory)
                 {
                     if (items.Count >= 26)
                     {
@@ -297,27 +307,27 @@ namespace Adventurer
                     #endregion
 
                     DrawText(veraSmall, s + ": " + items.Dequeue(),
-                        new Point2D(650, m), Color.White);
+                        new Point(650, m), Color.White);
                 }
 
                 items.Clear();
             }
             #endregion
-            else if (inventorySelect <= currentLevel.creatures[0].inventory.Count) //If the item exists
+            else if (inventorySelect <= currentLevel.creatureList[0].inventory.Count) //If the item exists
             {
                 if (inventoryMode == 0)
                 {
-                    DrawText(veraSmall, CapitalizeFirst(currentLevel.creatures[0].inventory[
-                        inventorySelect - 1].name), new Point2D(650, 75), Color.White); //Draw selected item's name
+                    DrawText(veraSmall, CapitalizeFirst(currentLevel.creatureList[0].inventory[
+                        inventorySelect - 1].name), new Point(650, 75), Color.White); //Draw selected item's name
 
-                    DrawText(veraSmall, " - [b]reak down", new Point2D(650, 90), Color.White);
-                    DrawText(veraSmall, " - [c]ombine craft", new Point2D(650, 105), Color.White);
-                    DrawText(veraSmall, " - [d]rop", new Point2D(650, 120), Color.White);
-                    DrawText(veraSmall, " - [e]at", new Point2D(650, 135), Color.White);
-                    DrawText(veraSmall, " - [f]ire/throw", new Point2D(650, 150), Color.White);
-                    DrawText(veraSmall, " - [u]se", new Point2D(650, 165), Color.White);
-                    DrawText(veraSmall, " - [w]ield", new Point2D(650, 180), Color.White);
-                    DrawText(veraSmall, " - [W]ear", new Point2D(650, 195), Color.White);
+                    DrawText(veraSmall, " - [b]reak down", new Point(650, 90), Color.White);
+                    DrawText(veraSmall, " - [c]ombine craft", new Point(650, 105), Color.White);
+                    DrawText(veraSmall, " - [d]rop", new Point(650, 120), Color.White);
+                    DrawText(veraSmall, " - [e]at", new Point(650, 135), Color.White);
+                    DrawText(veraSmall, " - [f]ire/throw", new Point(650, 150), Color.White);
+                    DrawText(veraSmall, " - [u]se", new Point(650, 165), Color.White);
+                    DrawText(veraSmall, " - [w]ield", new Point(650, 180), Color.White);
+                    DrawText(veraSmall, " - [W]ear", new Point(650, 195), Color.White);
                 }
                 else if (inventoryMode == 1) //Craft this item menu
                 {
@@ -336,7 +346,7 @@ namespace Adventurer
                     int count = items.Count;
                     if (count <= 0)
                         DrawText(veraSmall, "Nothing occurs to you, given what you have.",
-                                               new Point2D(650, 75), Color.White);
+                                               new Point(650, 75), Color.White);
 
                     for (int c = 1; c <= count; c++)
                     {
@@ -397,7 +407,7 @@ namespace Adventurer
                         #endregion
 
                         DrawText(veraSmall, s + ": " + items.Dequeue(),
-                            new Point2D(650, m), Color.White);
+                            new Point(650, m), Color.White);
                     }
                     items.Clear();
                 }
@@ -406,21 +416,23 @@ namespace Adventurer
 		static void Draw_Health()
 		{	
 			Draw_Main();
-            SdlGfx.boxColor(screen, (short)(windowSizeX * 0.66), 0, (short)windowSizeX, (short)windowSizeY,
-                Color.FromArgb(1, 1, 1, 255).ToArgb()); //Black backdrop
-            SdlGfx.rectangleColor(screen, (short)(windowSizeX * 0.66), 0, (short)windowSizeX, (short)windowSizeY,
-                Color.White.ToArgb()); //White border
+            //SdlGfx.boxColor(screen, (short)(windowSizeX * 0.66), 0, (short)windowSizeX, (short)windowSizeY,
+            //    Color.FromArgb(1, 1, 1, 255).ToArgb()); //Black backdrop
+            //SdlGfx.rectangleColor(screen, (short)(windowSizeX * 0.66), 0, (short)windowSizeX, (short)windowSizeY,
+            //    Color.White.ToArgb()); //White border
 
-            DrawText(vera, "Status Menu", new Point2D(690, 20), Color.White);
-            DrawText(veraSmall, "Cancel: Space", new Point2D(605, windowSizeY - 20), Color.White);
+            DrawText(vera, "Status Menu", new Point(690, 20), Color.White);
+            DrawText(veraSmall, "Cancel: Space", new Point(605, windowSizeY - 20), Color.White);
 
             #region List parts
-            int partCount = currentLevel.creatures[0].anatomy.Count;
+            var player = GetPlayer1();
+            int partCount = player.anatomy.Count;
             int m = 60;
             Queue<string> parts = new Queue<string>();
             Queue<Color> partDamage = new Queue<Color>();
+            float healthRatio = 1f;
 
-            foreach (BodyPart part in currentLevel.creatures[0].anatomy)
+            foreach (BodyPart part in currentLevel.creatureList[0].anatomy)
             {
                 if (parts.Count >= 24)
                 {
@@ -450,6 +462,20 @@ namespace Adventurer
                     default:
                         throw new Exception($"Unhandled InjuryType '${part.injury.ToString()}' when displaying body parts");
                 }
+
+                healthRatio = (float)part.currentHealth / (float)part.noInjury; // This is the health ratio.                        
+                if (healthRatio >= 1.00)
+                    partDamage.Enqueue(Color.White);
+                else if (healthRatio > 0.75)
+                    partDamage.Enqueue(Color.Cyan);
+                else if (healthRatio > 0.5)
+                    partDamage.Enqueue(Color.Green);
+                else if (healthRatio > 0.25)
+                    partDamage.Enqueue(Color.Yellow);
+                else if (healthRatio > 0)
+                    partDamage.Enqueue(Color.Crimson);
+                else
+                    partDamage.Enqueue(Color.Gray);
             }
 
             partCount = parts.Count;
@@ -457,7 +483,7 @@ namespace Adventurer
             {
                 m += 15; //Skip down 15 pixels
                 DrawText(veraSmall, parts.Dequeue(),
-                    new Point2D(650, m), partDamage.Dequeue());
+                    new Point(650, m), partDamage.Dequeue());
             }
 
             parts.Clear();
@@ -466,23 +492,23 @@ namespace Adventurer
 		static void Draw_GetPos()
 		{
 			Draw_Main();
-            SdlGfx.boxColor(screen, 5, 533, 895, (short)(windowSizeY * 0.992), Color.Black.ToArgb());
-            SdlGfx.rectangleColor(screen, 5, 533, 895, (short)(windowSizeY * 0.992), Color.White.ToArgb());
+            //SdlGfx.boxColor(screen, 5, 533, 895, (short)(windowSizeY * 0.992), Color.Black.ToArgb());
+            //SdlGfx.rectangleColor(screen, 5, 533, 895, (short)(windowSizeY * 0.992), Color.White.ToArgb());
             
-            DrawImage(88, new Point2D(cursorPos.X * TILEWIDTH, cursorPos.Y * TILEHEIGHT), Color.Yellow); //Draw Cursor
+            DrawImage(88, new Point(cursorPos.X * TILEWIDTH, cursorPos.Y * TILEHEIGHT), Color.Yellow, "8"); //Draw Cursor
 
             #region Description
             int m = 535;
             Queue<string> messages = new Queue<string>();
             Tile thisTile = currentLevel.tileArray[cursorPos.X, cursorPos.Y];
 
-            if (currentLevel.LineOfSight(currentLevel.creatures[0].pos, cursorPos)) //If it can be seen
+            if (currentLevel.LineOfSight(currentLevel.creatureList[0].pos, cursorPos)) //If it can be seen
             {
-                foreach (Creature c in currentLevel.creatures)
+                foreach (Creature c in currentLevel.creatureList)
                 {
                     if (c.pos == cursorPos) //If creature is at this position
                     {
-                        messages.Enqueue("There is a " + c.name + " here.");
+                        messages.Enqueue("There is a " + c.Stats.name + " here.");
                     }
                 }
 
@@ -512,10 +538,10 @@ namespace Adventurer
             }
             else
             {
-                messages.Enqueue("You cannot see to there at the moment");
+                messages.Enqueue("You cannot see that space at the moment");
             }
 
-            while(messages.Count >= 14)
+            while(messages.Count >= MaxMessages)
             {
                 messages.Dequeue(); //Don't let there be more than fourteen in the queue
             }
@@ -525,10 +551,10 @@ namespace Adventurer
                 messages.Enqueue("There is nothing noteworthy here.");
             }
 
-            foreach (string message in messages.Reverse())
+            foreach (string message in messages)
             {
-                m -= 15; //Skip up 15 pixels
-                DrawText(veraSmall, message, new Point2D(10, m), Color.White);
+                m += 15; //Skip down 15 pixels
+                DrawText(veraSmall, message, new Point(10, m), Color.White);
             }
 
             messages.Clear();
@@ -536,101 +562,30 @@ namespace Adventurer
 		}
 		static void Draw_Escape()
 		{
-	        DrawText(vera, "Main Menu", new Point2D(380, 20), Color.White);
+	        DrawText(vera, "Main Menu", new Point(380, 20), Color.White);
 	
 	        if (selectionCursor == 1) //If New Game is highlighted
-	            DrawText(vera, "<Return to game>", new Point2D(350, windowSizeY / 2), Color.White);
+	            DrawText(vera, "<Return to game>", new Point(350, windowSizeY / 2), Color.White);
 	        else
-	            DrawText(vera, "Return to game", new Point2D(350, windowSizeY / 2), Color.Gray);
+	            DrawText(vera, "Return to game", new Point(350, windowSizeY / 2), Color.Gray);
 	
 	        if (selectionCursor == 2) //If Quit is highlighted
-	            DrawText(vera, "<Quit and Save>", new Point2D(350, windowSizeY / 2 + 30), Color.White);
+	            DrawText(vera, "<Quit and Save>", new Point(350, windowSizeY / 2 + 30), Color.White);
 	        else
-	            DrawText(vera, "Quit and Save", new Point2D(350, windowSizeY / 2 + 30), Color.Gray);
+	            DrawText(vera, "Quit and Save", new Point(350, windowSizeY / 2 + 30), Color.Gray);
 		}
-		
-		static void Draw_HUD()
-		{		
-            SdlGfx.rectangleColor(screen, 5, 533, 270, (short)(windowSizeY * 0.992), Color.White.ToArgb());
-            SdlGfx.rectangleColor(screen, 270, 533, 895, (short)(windowSizeY * 0.992), Color.White.ToArgb());
 
-            #region Stat Box
-            Color foodLevelColor = Color.White;
-            string foodLevelWord = "Full";
-            if (currentLevel.creatures[0].food > 15000)
-            {
-                foodLevelColor = Color.Cyan;
-                foodLevelWord = "Overstuffed";
-            }
-            if (currentLevel.creatures[0].food < 10000)
-            {
-                foodLevelColor = Color.LightGreen;
-                foodLevelWord = "Hungry";
-            }
-            if (currentLevel.creatures[0].food < 5000)
-            {
-                foodLevelColor = Color.Yellow;
-                foodLevelWord = "Famished";
-            }
-            if (currentLevel.creatures[0].food < 2500)
-            {
-                foodLevelColor = Color.Crimson;
-                foodLevelWord = "Starving";
-            }
-            if (currentLevel.creatures[0].food < 0)
-            {
-                foodLevelColor = Color.Gray;
-                foodLevelWord = "Organ Failure";
-            }
+        public const int MaxMessages = 10;
+        static void Draw_HUD()
+        {
+            DrawStatBox();
+        }
 
-            Color injuryColor = Color.White;
-
-            if (currentLevel.creatures[0].hp >= currentLevel.creatures[0].hpMax)
-                injuryColor = Color.White;
-            else if (currentLevel.creatures[0].hp > currentLevel.creatures[0].hpMax * 0.75)
-                injuryColor = Color.LightCyan;
-            else if (currentLevel.creatures[0].hp > currentLevel.creatures[0].hpMax * 0.5)
-                injuryColor = Color.Green;
-            else if (currentLevel.creatures[0].hp > currentLevel.creatures[0].hpMax * 0.25)
-                injuryColor = Color.Yellow;
-            else if (currentLevel.creatures[0].hp > currentLevel.creatures[0].hpMax * 0.0)
-                injuryColor = Color.FromArgb(255,50,50);
-            else if (currentLevel.creatures[0].hp <= 0)
-                injuryColor = Color.Gray;
-
-            int displayTurn = (int)totalTurnCount;
-
-            DrawText(veraSmall, "Turn: " + displayTurn.ToString(),
-                new Point2D(10, 535), Color.White); //Write turn count
-
-            DrawText(veraSmall, "HP: " + currentLevel.creatures[0].hp + "/" + currentLevel.creatures[0].hpMax,
-                new Point2D(175, 535), injuryColor); //Write turn count
-
-            DrawText(veraSmall, "XP: " + currentLevel.creatures[0].xp + "/" + currentLevel.creatures[0].xpBorder*2,
-                new Point2D(175, 550), Color.White); //Write turn count
-			
-			DrawText(veraSmall, "GP: " + currentLevel.creatures[0].gold,
-                new Point2D(175, 565), Color.White); //Write turn count
-
-            DrawText(veraSmall, "Area: (" + mapPos.X + ", " + mapPos.Y + ", " + mapPos.Z + ")",
-                new Point2D(10, 550), Color.White);
-
-            DrawText(veraSmall, "Hunger: ", new Point2D(10, 610),
-                Color.White);
-            DrawText(veraSmall, foodLevelWord, new Point2D(110, 610), foodLevelColor);
-
-            DrawText(veraSmall, "STR: " + currentLevel.creatures[0].strength +
-                " DEX: " + currentLevel.creatures[0].dexterity +
-                " CON: " + currentLevel.creatures[0].constitution +
-                " INT: " + currentLevel.creatures[0].intelligence +
-                " WIS: " + currentLevel.creatures[0].wisdom +
-                " CHA: " + currentLevel.creatures[0].charisma, new Point2D(10, 730));
-            #endregion
-
-            #region Message Box
+        private static void DrawMessageBox()
+        {
             int m = 520;
             Queue<string> messages = new Queue<string>();
-            foreach (string message in currentLevel.creatures[0].message)
+            foreach (string message in currentLevel.creatureList[0].message)
             {
                 if (messages.Count >= 14)
                 {
@@ -640,191 +595,284 @@ namespace Adventurer
                 messages.Enqueue(message);
             }
 
-            foreach (string message in messages.Reverse()) //Display newest first
+            foreach (string message in messages)
             {
                 m += 15; //Skip down 15 pixels
-                DrawText(veraSmall, message, new Point2D(280, m), Color.White);
+                DrawText(veraSmall, message, new Point(280, m), Color.White);
             }
 
             messages.Clear();
-            #endregion
-		}
-		static void Draw_Tiles()
+        }
+
+        
+        
+        private static void DrawStatBox()
+        {
+            var player = GetPlayer1();
+
+            FoodLevel currentFoodLevel = FoodLevel.Default;
+            foreach(var level in FoodLevel.FoodLevels.Select(pair => pair.Value))
+            {
+                if (Mathematics.IsWithinRange(player.food, level.Range))
+                {
+                    currentFoodLevel = level;
+                }
+            }
+
+            Color injuryColor = Color.White;
+
+            if (currentLevel.creatureList[0].hp >= currentLevel.creatureList[0].hpMax)
+                injuryColor = Color.White;
+            else if (currentLevel.creatureList[0].hp > currentLevel.creatureList[0].hpMax * 0.75)
+                injuryColor = Color.LightCyan;
+            else if (currentLevel.creatureList[0].hp > currentLevel.creatureList[0].hpMax * 0.5)
+                injuryColor = Color.Green;
+            else if (currentLevel.creatureList[0].hp > currentLevel.creatureList[0].hpMax * 0.25)
+                injuryColor = Color.Yellow;
+            else if (currentLevel.creatureList[0].hp > currentLevel.creatureList[0].hpMax * 0.0)
+                injuryColor = Color.FromArgb(255, 50, 50);
+            else if (currentLevel.creatureList[0].hp <= 0)
+                injuryColor = Color.Gray;
+
+            int displayTurn = (int)totalTurnCount;
+
+            DrawText(veraSmall, "Turn: " + displayTurn.ToString() + "\t",
+                new Point(10, 535), Color.White, false); //Write turn count
+
+            DrawText(veraSmall, "HP: " + currentLevel.creatureList[0].hp + "/" + currentLevel.creatureList[0].hpMax + "\t\t",
+                new Point(175, 535), injuryColor, false); //Write turn count
+
+            DrawText(veraSmall, "XP: " + currentLevel.creatureList[0].xp + "/" + currentLevel.creatureList[0].xpBorder * 2 + "\t\t",
+                new Point(175, 550), Color.White, false); //Write turn count
+
+            DrawText(veraSmall, "GP: " + currentLevel.creatureList[0].gold + "\t",
+                new Point(175, 565), Color.White, false); //Write turn count
+
+            DrawText(veraSmall, "Area: (" + mapPos.X + ", " + mapPos.Y + ", " + mapPos.Z + ")\t",
+                new Point(10, 550), Color.White, false);
+
+            DrawText(veraSmall, "Hunger: ", new Point(10, 610),
+                Color.White, false);
+
+            DrawText(veraSmall, currentFoodLevel.ToString() + "\t", new Point(110, 610), currentFoodLevel.Color);
+
+            DrawText(veraSmall, "STR: " + currentLevel.creatureList[0].strength +
+                " DEX: " + currentLevel.creatureList[0].dexterity +
+                " CON: " + currentLevel.creatureList[0].constitution +
+                " INT: " + currentLevel.creatureList[0].intelligence +
+                " WIS: " + currentLevel.creatureList[0].wisdom +
+                " CHA: " + currentLevel.creatureList[0].charisma, new Point(10, 730));
+        }
+
+        static void Draw_Tiles()
 		{
             for (int y = 0; y < Level.GRIDH; y++)
 			{
                 for (int x = 0; x < Level.GRIDW; x++)
                 {
-                    int imageIndex = -1; //Open floor image
-                    Color imageColor = Color.White;
-					Tile thisTile = currentLevel.tileArray[x,y]; //Shorthand for this tile
-					Creature player = currentLevel.creatures[0]; //Shorthand for the player creature
-
-                    if (currentLevel.levelType == "forest")
-                    {
-                        imageColor = Color.LightGreen; //Grassy forest floor
-                    }
-					
-					if (thisTile.lastSeenImage > 0) //If we've seen it
-                    {
-                        imageIndex = thisTile.lastSeenImage; //Draw the remembered tile
-                        imageColor = Color.DimGray; //But washed out
-                    }
-
-                    bool LOS = ((currentLevel.LineOfSight(player.pos, new Point2D(x, y))) || iCanSeeForever);
-
-                    if (LOS && player.blind <= 0) //If in line of sight and not blind
-                    {
-						imageIndex = 46; //Open floor tile
-                        if (currentLevel.tileArray[x, y].isWall)
-                        {
-                            imageIndex = 219; //Wall image
-                            imageColor = Color.Tan;
-                        }
-
-                        if (currentLevel.tileArray[x, y].fixtureLibrary.Count > 0)
-                        {
-                            int topIndex = currentLevel.tileArray[x, y].fixtureLibrary.Count - 1;
-                            bool visibleTrap = true;
-
-                            if (currentLevel.tileArray[x, y].fixtureLibrary[topIndex] is Trap)
-                            {
-                                Trap t = (Trap)currentLevel.tileArray[x, y].fixtureLibrary[topIndex];
-                                if (t.visible)
-                                {
-                                    visibleTrap = true;
-                                }
-                                else
-                                {
-                                    visibleTrap = false;
-                                }
-                            }
-
-                            if (visibleTrap)
-                            {
-                                imageIndex = currentLevel.tileArray[x, y].fixtureLibrary[topIndex].imageIndex;
-                                imageColor = currentLevel.tileArray[x, y].fixtureLibrary[topIndex].color;
-                            }
-                            //else
-                            //{
-                            //    imageIndex = 0; //Open floor image
-                            //    imageColor = Color.White;
-                            //}
-                        }
-                    }
-					
-					if (currentLevel.tileArray[x,y].itemList.Count > 0 && //If there's an item here
-					    (currentLevel.creatures[0].detectItem > 0 || (LOS && player.blind <= 0))) //If detecting items or can see them
-					{
-						int topIndex = currentLevel.tileArray[x, y].itemList.Count - 1;
-                        if (currentLevel.tileArray[x, y].itemList[topIndex] != null)
-                        {
-                            imageIndex = currentLevel.tileArray[x, y].itemList[topIndex].itemImage; //Top item image
-                            imageColor = currentLevel.tileArray[x, y].itemList[topIndex].color;
-                        }
-					}
-					
-					foreach (Creature c in currentLevel.creatures)
-                    {
-                        if (c.pos == new Point2D(x, y) && //If there's a creature here
-						    ((LOS && player.blind <= 0 && (c.invisibility <= 0 || player.seeInvisible > 0)) || 
-						     player.detectMonster > 0)) //And we can see or detect it
-                        {
-                            imageIndex = c.creatureImage;
-                            imageColor = c.color;
-                        }
-                    }
-
-					if (imageIndex >= 0 && imageIndex < 256) //If existent
-					{
-						currentLevel.tileArray[x, y].lastSeenImage = imageIndex; //Remember image
-						DrawImage(imageIndex, new Point2D(x * TILEWIDTH, y * TILEHEIGHT),
-                            imageColor); //Draw this tile's stuff
-					}
-					
-					if (player.pos == new Point2D(x,y)) //PC should always be drawn
-					{
-						imageIndex = player.creatureImage;
-						imageColor = player.color;
-                        DrawImage(imageIndex, new Point2D(x * TILEWIDTH, y * TILEHEIGHT),
-                            imageColor); //Draw this tile's stuff
-                    }
-                    //int smellTotal = 0;
-                    //foreach (int s in currentLevel.tileArray[x, y].scentMagnitude)
-                    //{
-                    //    smellTotal += s;
-                    //}
-                    //DrawText(veraSmall, smellTotal.ToString(), new Vector2(x * TILEWIDTH, y * TILEHEIGHT), Color.Red);
+                    DrawGridRow(y, x);                    
                 }
-			}
+                Console.Write("\n");
+            }
 		}
 
-        static void DrawText(IntPtr fontToDraw, string text, Point2D position)
+        private static void DrawGridRow(int y, int x)
         {
-            DrawText(fontToDraw, text, position, Color.White);
+            Tile thisTile = currentLevel.tileArray[x, y]; //Shorthand for this tile
+            Creature player = currentLevel.creatureList[0]; //Shorthand for the player creature
+
+            ConsoleTile toDraw = ConsoleTile.Blank;
+            if (currentLevel.levelType == "forest")
+            {
+                toDraw.Color = Color.LightGreen; //Grassy forest floor
+            }
+
+            if (thisTile.lastSeenTile != null) //If we've seen it
+            {
+                toDraw = thisTile.lastSeenTile; //Draw the remembered tile
+                toDraw.Color = Color.DimGray; //But washed out
+            }
+
+            bool LOS = ((currentLevel.LineOfSight(player.pos, new Point(x, y))) || iCanSeeForever);
+            if (LOS && player.blind <= 0) //If in line of sight and not blind
+            {
+                toDraw = DrawLineOfSight(y, x, toDraw);
+            }
+
+            toDraw = DrawItemsOnGround(y, x, player, LOS, toDraw);
+            toDraw = DrawCreaturesHere(y, x, player, LOS, toDraw); // player is a creature.
+
+            if (Mathematics.IsWithinRange(toDraw.ImageIndex, new Range(0, 256)) &&
+                toDraw.Location != player.pos) //If existent
+            {
+                thisTile.lastSeenTile = toDraw; //Remember image
+                //DrawImage(-1, new Point(x * TILEWIDTH, y * TILEHEIGHT), toDraw.Color, "."); //Draw this tile's stuff
+            }
+
+            //if (player.pos == new Point(x, y)) //PC should always be drawn
+            //{
+            //    toDraw.ImageIndex = player.Stats.creatureImage;
+            //    toDraw.Color = player.Stats.color;
+            //    //DrawImage(5, new Point(x * TILEWIDTH, y * TILEHEIGHT), toDraw.Color, "@"); //Draw this tile's stuff
+            //}
+            DrawImage(toDraw);
+
+            //int smellTotal = 0;
+            //foreach (int s in currentLevel.tileArray[x, y].scentMagnitude)
+            //{
+            //    smellTotal += s;
+            //}
+            //DrawText(veraSmall, smellTotal.ToString(), new Point(x * TILEWIDTH, y * TILEHEIGHT), Color.Red);                        
         }
-        static void DrawText(IntPtr fontToDraw, string text, Point2D position, Color color)
+
+        private static ConsoleTile DrawCreaturesHere(int y, int x, Creature player, bool LOS, ConsoleTile prevTile)
         {
-            Sdl.SDL_Surface textImage; //The surface to be rendered on
-            IntPtr textPointer; //Points to image data
-            Sdl.SDL_Color foreColor = new Sdl.SDL_Color(color.R, color.G, color.B, color.A); //Convert Drawing.Color to Sdl color
-            Sdl.SDL_Rect source; //Where to grab from
-            Sdl.SDL_Rect target; //Where to display to
-
-            textPointer = SdlTtf.TTF_RenderText_Blended(fontToDraw, text, foreColor); //Render text onto surface              
-            textImage = (Sdl.SDL_Surface)Marshal.PtrToStructure(textPointer, typeof(Sdl.SDL_Surface)); //Put the image data in its place
-
-            source.w = target.w = (short)textImage.w; //Get width of image
-            source.h = target.h = (short)textImage.h; //Get height of image
-            source.x = 0; //Get all the image
-            source.y = 0; //Get all the image
-            target.x = (short)position.X; //Draw at given x
-            target.y = (short)position.Y; //and given y
-
-            Sdl.SDL_BlitSurface(textPointer, ref source, screen, ref target); //Draw text on screen
-            Sdl.SDL_FreeSurface(textPointer); //Free the text image
-        }
-        static void DrawImage(int imageToDraw, Point2D position, Color color)
-        {
-            target.x = position.X;
-            target.y = position.Y;
-            ColorSwap(imageToDraw, color);
-
-            Sdl.SDL_BlitSurface(image[imageToDraw], ref source, screen, ref target);
-        }
-        static unsafe void ColorSwap(int i, Color newColor)
-        {
-            int* pixels = (int*)imageData[i].pixels.ToPointer();
-
-            for (int y = 0; y < imageData[i].h; y++)
-                for (int x = 0; x < imageData[i].w; x++)
+            foreach (Creature c in currentLevel.creatureList)
+            {
+                var tileToDraw = new ConsoleTile(c.Stats.name, Color.Red);
+                if (c.pos == new Point(x, y) && //If there's a creature here
+                    ((LOS && player.blind <= 0 && (c.invisibility <= 0 || player.seeInvisible > 0)) ||
+                     player.detectMonster > 0)) //And we can see or detect it
                 {
-                    Color pixel = Color.FromArgb(pixels[x + y * imageData[i].w]);
-                    if (pixel.A != 0)
+                    tileToDraw.ImageIndex = c.Stats.creatureImage;
+                    tileToDraw.Color = c.Stats.color;
+                    return tileToDraw.DeepClone();
+                }
+            }
+            return prevTile.DeepClone();
+        }
+
+        [Serializable]
+        public class ConsoleTile
+        {
+            public static readonly ConsoleTile Blank = new ConsoleTile(".", Color.Black )
+            {
+                ImageIndex = 46, //Open floor tile                
+            };
+            public static readonly ConsoleTile Wall = new ConsoleTile("|", Color.Tan)
+            {
+                ImageIndex = 219, //Open floor tile
+            };
+
+            public string Text;
+            public Color Color;
+            public int ImageIndex = -1;
+            public Point Location;
+            public Tile Tile;
+            public ConsoleTile(string text, Color color)
+            {
+                Text = text;
+                Color = color;
+                Tile = new Tile();
+            }
+            public override string ToString()
+            {
+                return Color.Name + " " + Text;
+            }
+            public ConsoleTile DeepClone()
+            {
+                var clone = new ConsoleTile(Text, Color);
+                clone.ImageIndex = ImageIndex;
+                clone.Location = new Point(Location.X, Location.Y);
+                clone.Tile = Tile;
+                return clone;
+            }
+        }
+
+        private static ConsoleTile DrawItemsOnGround(int y, int x, Creature player, bool LOS, ConsoleTile prevTile)
+        {
+            var tileToDraw = new ConsoleTile("/", Color.White) {
+                Location = new Point(x, y),
+                Tile = currentLevel.tileArray[x, y],
+            };
+            if (tileToDraw.Tile.itemList.Any() && //If there's an item here
+               (player.detectItem > 0 || (LOS && player.blind <= 0))) //If detecting items or can see them
+            {
+                int topIndex = tileToDraw.Tile.itemList.Count - 1;
+                var topItem = tileToDraw.Tile.itemList[topIndex];
+                if (topItem != null)
+                {
+                    tileToDraw.ImageIndex = topItem.itemImage; //Top item image
+                    tileToDraw.Color = topItem.color;
+                    return tileToDraw.DeepClone();
+                }
+            }
+            return prevTile.DeepClone();
+        }
+
+        private static ConsoleTile DrawLineOfSight(int y, int x, ConsoleTile prevTile)
+        {
+            ConsoleTile tileToDraw = ConsoleTile.Blank;
+            var thisTile = currentLevel.tileArray[x, y];
+            if (thisTile.isWall)
+            {
+                tileToDraw = ConsoleTile.Wall;
+            }
+            tileToDraw.Tile = thisTile;
+            tileToDraw.Location = new Point(x, y);
+            
+
+            // See if it's a door or trap
+            if(DrawLOS_Fixture(ref tileToDraw))
+            {
+                return tileToDraw;
+            }
+
+            return prevTile;
+        }
+        public static bool DrawLOS_Fixture(ref ConsoleTile tileToDraw)
+        {
+            if (tileToDraw.Tile.fixtureLibrary.Any())
+            {
+                int topIndex = tileToDraw.Tile.fixtureLibrary.Count - 1;
+                var currentFixture = tileToDraw.Tile.fixtureLibrary[topIndex];
+                if (currentFixture is Trap)
+                {
+                    Trap trap = (Trap)currentFixture;
+                    if (trap.visible)
                     {
-                        pixel = newColor;
-                        pixels[x + y * imageData[i].w] = pixel.ToArgb();
+                        tileToDraw.ImageIndex = trap.imageIndex;
+                        tileToDraw.Color = trap.color;
+                        return true;
                     }
                 }
+            }
+            return false;
+        }
 
-            pixels = null; //For the love of rng, this memory better be freed            
-        } //Changes the color of an image, is pretty hackish but works
-        static unsafe void Transparencify(int i, Color tranColor)
+        static void ClearScreen()
         {
-            int* pixels = (int*)imageData[i].pixels.ToPointer();
+            Console.Clear();
+        }
+        static void DrawText(FontFamily fontToDraw, string text, int x, int y, bool newLine = true)
+        {
+            DrawText(fontToDraw, text, new Point(x, y), Color.White, newLine);
+        }
+        static void DrawText(FontFamily fontToDraw, string text, Point position, bool newLine = true)
+        {
+            DrawText(fontToDraw, text, position, Color.White, newLine);
+        }
+        static void DrawText(FontFamily fontToDraw, string text, Point position, Color color, bool newLine = true)
+        {
+            if (newLine)
+                Console.WriteLine(text);
+            else
+                Console.Write(text);
+        }
+        public static void DrawImage(ConsoleTile tile)
+        {
+            DrawImage(tile.ImageIndex, tile.Location, tile.Color, tile.Text);
+        }
+        public static void DrawImage(int imageToDraw, Point position, Color color, string str)
+        {
+            target.x = (short)position.X;
+            target.y = (short)position.Y;
 
-            for (int y = 0; y < imageData[i].h; y++)
-                for (int x = 0; x < imageData[i].w; x++)
-                {
-                    Color pixel = Color.FromArgb(pixels[x + y * imageData[i].w]);
-                    if (pixel.R == tranColor.R && pixel.G == tranColor.G && pixel.B == tranColor.B)
-                    {
-                        pixel = Color.FromArgb(0,pixel.R, pixel.G, pixel.B);
-                        pixels[x + y * imageData[i].w] = pixel.ToArgb();
-                    }                    
-                }
-
-            pixels = null; //For the love of rng, this memory better be freed            
-        } //Changes the transparency of an image, is pretty hackish but works
+            Console.ForegroundColor = color.ToConsoleColor();
+            Console.Write(str.Substring(0, 1));
+            Console.ResetColor();
+            //Sdl.SDL_BlitSurface(image[imageToDraw], ref source, screen, ref target);
+        }
 	}
 }
+
